@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>udptcplistener</AssemblyName>
+    <RootNamespace>UdpTcpListener.Cli</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UdpTcpListener.Core\UdpTcpListener.Core.csproj" />
+  </ItemGroup>
+
+</Project>

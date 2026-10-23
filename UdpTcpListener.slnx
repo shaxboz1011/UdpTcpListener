@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/UdpTcpListener.App/UdpTcpListener.App.csproj" />
+    <Project Path="src/UdpTcpListener.Cli/UdpTcpListener.Cli.csproj" />
+    <Project Path="src/UdpTcpListener.Core/UdpTcpListener.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/UdpTcpListener.Core.Tests/UdpTcpListener.Core.Tests.csproj" />
+  </Folder>
+</Solution>

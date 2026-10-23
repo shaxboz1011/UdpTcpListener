@@ -1,0 +1,51 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="UdpTcpListener.App.App"
+             Name="UdpTcpListener"
+             RequestedThemeVariant="Default">
+
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="AppBackground" Color="#F4F6FB" />
+          <SolidColorBrush x:Key="CardBackground" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="CardBorder" Color="#E3E7EF" />
+          <SolidColorBrush x:Key="MutedText" Color="#64748B" />
+          <SolidColorBrush x:Key="SubtleFill" Color="#EEF1F7" />
+          <SolidColorBrush x:Key="ChartFill" Color="#334F46E5" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="AppBackground" Color="#0B1020" />
+          <SolidColorBrush x:Key="CardBackground" Color="#121A2E" />
+          <SolidColorBrush x:Key="CardBorder" Color="#1F2A44" />
+          <SolidColorBrush x:Key="MutedText" Color="#94A3B8" />
+          <SolidColorBrush x:Key="SubtleFill" Color="#18223A" />
+          <SolidColorBrush x:Key="ChartFill" Color="#4D6366F1" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+
+      <SolidColorBrush x:Key="AccentBrush" Color="#4F46E5" />
+      <SolidColorBrush x:Key="AccentAltBrush" Color="#06B6D4" />
+      <SolidColorBrush x:Key="DangerBrush" Color="#E11D48" />
+      <SolidColorBrush x:Key="UdpBrush" Color="#14B8A6" />
+      <SolidColorBrush x:Key="TcpBrush" Color="#6366F1" />
+      <LinearGradientBrush x:Key="BrandGradient" StartPoint="0%,0%" EndPoint="100%,100%">
+        <GradientStop Offset="0" Color="#4F46E5" />
+        <GradientStop Offset="1" Color="#06B6D4" />
+      </LinearGradientBrush>
+      <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas, JetBrains Mono, DejaVu Sans Mono, Liberation Mono, monospace</FontFamily>
+    </ResourceDictionary>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Light" Accent="#4F46E5" />
+        <ColorPaletteResources x:Key="Dark" Accent="#6366F1" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+    <StyleInclude Source="avares://UdpTcpListener/Styles/AppStyles.axaml" />
+  </Application.Styles>
+</Application>

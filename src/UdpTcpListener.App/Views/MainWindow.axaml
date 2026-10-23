@@ -1,0 +1,377 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:UdpTcpListener.App.ViewModels"
+        xmlns:l="using:UdpTcpListener.App.Localization"
+        xmlns:c="using:UdpTcpListener.App.Controls"
+        xmlns:conv="using:UdpTcpListener.App.Converters"
+        xmlns:core="using:UdpTcpListener.Core.Capture"
+        xmlns:pk="using:UdpTcpListener.Core.Packets"
+        xmlns:st="using:UdpTcpListener.Core.Statistics"
+        mc:Ignorable="d" d:DesignWidth="1440" d:DesignHeight="900"
+        x:Class="UdpTcpListener.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/icon.ico"
+        Title="UdpTcpListener"
+        Width="1440" Height="900" MinWidth="1000" MinHeight="640"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource AppBackground}">
+
+  <Design.DataContext>
+    <vm:MainWindowViewModel />
+  </Design.DataContext>
+
+  <Window.KeyBindings>
+    <KeyBinding Gesture="F5" Command="{Binding ToggleCaptureCommand}" />
+    <KeyBinding Gesture="Ctrl+E" Command="{Binding ExportCommand}" />
+    <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenCommand}" />
+    <KeyBinding Gesture="Ctrl+L" Command="{Binding ClearCommand}" />
+  </Window.KeyBindings>
+
+  <DockPanel Margin="16,12,16,8">
+
+    <!-- ============================== Header ============================== -->
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
+      <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+        <Image Source="/Assets/logo.png" Width="36" Height="36" />
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Text="UdpTcpListener" FontSize="18" FontWeight="Bold" />
+          <TextBlock Text="{l:T AppTagline}" Classes="muted" FontSize="12" />
+        </StackPanel>
+      </StackPanel>
+
+      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <ComboBox ItemsSource="{Binding Languages}" SelectedItem="{Binding SelectedLanguage}" MinWidth="130"
+                  ToolTip.Tip="{l:T Language}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="l:LanguageOption">
+              <TextBlock Text="{Binding Name}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme}" MinWidth="120"
+                  ToolTip.Tip="{l:T Theme}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:ThemeOption">
+              <TextBlock Text="{Binding Label}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <Button Classes="link" Content="GitHub" Command="{Binding OpenUrlCommand}"
+                CommandParameter="https://github.com/shaxboz1011/UdpTcpListener" />
+        <TextBlock Text="{Binding Update.CurrentVersion, StringFormat='v{0}'}" Classes="muted" VerticalAlignment="Center" FontSize="12" />
+      </StackPanel>
+    </Grid>
+
+    <!-- ============================== Banners ============================== -->
+    <StackPanel DockPanel.Dock="Top" Spacing="8">
+      <Border Classes="banner info" IsVisible="{Binding Update.IsUpdateAvailable}" Margin="0,0,0,8">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel VerticalAlignment="Center" Spacing="4">
+            <TextBlock FontWeight="SemiBold">
+              <Run Text="{l:T UpdateAvailable}" />
+              <Run Text="{Binding Update.NewVersion}" />
+            </TextBlock>
+            <ProgressBar IsVisible="{Binding Update.IsDownloading}" Value="{Binding Update.Progress}" Maximum="100" MinWidth="240" HorizontalAlignment="Left" />
+            <TextBlock Text="{Binding Update.Error}" Foreground="{DynamicResource DangerBrush}" IsVisible="{Binding Update.Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+            <Button Classes="link" Content="{l:T Later}" Command="{Binding Update.DismissCommand}" />
+            <Button Classes="primary" Content="{l:T UpdateNow}" Command="{Binding Update.UpdateAndRestartCommand}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Border Classes="banner error" IsVisible="{Binding HasError}" Margin="0,0,0,8">
+        <Grid ColumnDefinitions="*,Auto">
+          <SelectableTextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" VerticalAlignment="Center" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+            <Button Classes="primary" Content="{l:T DownloadNpcap}" IsVisible="{Binding IsCaptureLibraryMissing}"
+                    Command="{Binding OpenUrlCommand}" CommandParameter="https://npcap.com/#download" />
+            <Button Classes="link" Content="{l:T Retry}" IsVisible="{Binding IsCaptureLibraryMissing}" Command="{Binding RefreshDevicesCommand}" />
+            <Button Classes="link" Content="✕" Command="{Binding DismissErrorCommand}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </StackPanel>
+
+    <!-- ============================== Toolbar ============================== -->
+    <Border DockPanel.Dock="Top" Classes="card" Padding="14,10" Margin="0,0,0,12">
+      <Grid ColumnDefinitions="*,Auto">
+        <WrapPanel ItemSpacing="12" LineSpacing="8" IsEnabled="{Binding CanEditFilter}">
+          <StackPanel>
+            <TextBlock Classes="caption" Text="{l:T Device}" />
+            <StackPanel Orientation="Horizontal" Spacing="4">
+              <ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" Width="300"
+                        PlaceholderText="{l:T SelectDevice}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="core:NetworkDevice">
+                    <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <Button Classes="tool" Content="⟳" Command="{Binding RefreshDevicesCommand}" ToolTip.Tip="{l:T RefreshDevices}" />
+            </StackPanel>
+          </StackPanel>
+
+          <StackPanel>
+            <TextBlock Classes="caption" Text="{l:T Protocol}" />
+            <ComboBox ItemsSource="{Binding Protocols}" SelectedItem="{Binding SelectedProtocol}" Width="120">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:ProtocolOption">
+                  <TextBlock Text="{Binding Label}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </StackPanel>
+
+          <StackPanel>
+            <TextBlock Classes="caption" Text="{l:T SourceIp}" />
+            <TextBox Text="{Binding SourceHost}" Width="150" PlaceholderText="{l:T Any}" />
+          </StackPanel>
+
+          <StackPanel>
+            <TextBlock Classes="caption" Text="{l:T DestinationIp}" />
+            <TextBox Text="{Binding DestinationHost}" Width="150" PlaceholderText="{l:T Any}" />
+          </StackPanel>
+
+          <StackPanel>
+            <TextBlock Classes="caption" Text="{l:T Port}" />
+            <TextBox Text="{Binding PortText}" Width="80" PlaceholderText="{l:T Any}" />
+          </StackPanel>
+
+          <StackPanel>
+            <TextBlock Classes="caption" Text="{l:T BpfFilter}" />
+            <TextBox Text="{Binding CustomBpf}" Width="180" PlaceholderText="len > 100" ToolTip.Tip="{l:T BpfHint}" />
+          </StackPanel>
+        </WrapPanel>
+
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom" Margin="12,0,0,0">
+          <Button Classes="primary" Classes.danger="{Binding IsCapturing}" Command="{Binding ToggleCaptureCommand}" MinWidth="110"
+                  ToolTip.Tip="F5" HorizontalContentAlignment="Center">
+            <Panel>
+              <TextBlock Text="{l:T Start}" IsVisible="{Binding !IsCapturing}" />
+              <TextBlock Text="{l:T Stop}" IsVisible="{Binding IsCapturing}" />
+            </Panel>
+          </Button>
+          <ToggleButton Classes="tool" IsChecked="{Binding IsPaused, Mode=OneWay}" Command="{Binding TogglePauseCommand}"
+                        IsEnabled="{Binding IsCapturing}" Content="{l:T Pause}" />
+          <Button Classes="tool" Content="{l:T Clear}" Command="{Binding ClearCommand}" ToolTip.Tip="Ctrl+L" />
+          <Button Classes="tool" Content="{l:T Open}" Command="{Binding OpenCommand}" ToolTip.Tip="Ctrl+O" />
+          <Button Classes="tool" Content="{l:T Export}" Command="{Binding ExportCommand}" ToolTip.Tip="Ctrl+E" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- ============================== Status bar ============================== -->
+    <Grid DockPanel.Dock="Bottom" ColumnDefinitions="Auto,*,Auto" Margin="2,8,2,0">
+      <Ellipse Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center"
+               Fill="{DynamicResource UdpBrush}" IsVisible="{Binding IsCapturing}" />
+      <TextBlock Grid.Column="1" Text="{Binding StatusText}" Classes="muted" FontSize="12" VerticalAlignment="Center" />
+      <TextBlock Grid.Column="2" Classes="muted" FontSize="12" VerticalAlignment="Center">
+        <Run Text="{l:T Dropped}" />
+        <Run Text="{Binding StatDropped}" />
+      </TextBlock>
+    </Grid>
+
+    <!-- ============================== Main area ============================== -->
+    <Grid ColumnDefinitions="*,12,330">
+
+      <Grid RowDefinitions="Auto,*,8,300">
+        <!-- Search -->
+        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+          <TextBox Text="{Binding SearchText}" PlaceholderText="{l:T Search}" />
+          <CheckBox Grid.Column="1" Content="{l:T AutoScroll}" IsChecked="{Binding AutoScroll}" Margin="12,0,0,0" />
+        </Grid>
+
+        <!-- Packet list -->
+        <Border Grid.Row="1" Classes="card" Padding="0" ClipToBounds="True">
+          <Panel>
+            <DataGrid x:Name="PacketGrid"
+                      ItemsSource="{Binding VisiblePackets}"
+                      SelectedItem="{Binding SelectedPacket}"
+                      IsReadOnly="True"
+                      CanUserReorderColumns="True"
+                      CanUserResizeColumns="True"
+                      CanUserSortColumns="False"
+                      SelectionMode="Single">
+              <DataGrid.Columns>
+                <DataGridTextColumn x:DataType="pk:PacketRecord" Header="{l:T ColNo}" Binding="{Binding Number}" Width="70" CellStyleClasses="mono" />
+                <DataGridTextColumn x:DataType="pk:PacketRecord" Header="{l:T ColTime}" Binding="{Binding Timestamp, StringFormat='{}{0:HH:mm:ss.ffffff}'}" Width="140" CellStyleClasses="mono" />
+                <DataGridTemplateColumn x:DataType="pk:PacketRecord" Header="{l:T ColProtocol}" Width="105">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="pk:PacketRecord">
+                      <Border Classes="pill" Background="{Binding Protocol, Converter={x:Static conv:AppConverters.ProtocolBrush}}" Margin="8,0">
+                        <TextBlock Text="{Binding ProtocolName}" />
+                      </Border>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn x:DataType="pk:PacketRecord" Header="{l:T ColSource}" Binding="{Binding Source}" Width="200" CellStyleClasses="mono" />
+                <DataGridTextColumn x:DataType="pk:PacketRecord" Header="{l:T ColDestination}" Binding="{Binding Destination}" Width="200" CellStyleClasses="mono" />
+                <DataGridTextColumn x:DataType="pk:PacketRecord" Header="{l:T ColLength}" Binding="{Binding Length}" Width="90" CellStyleClasses="mono" />
+                <DataGridTextColumn x:DataType="pk:PacketRecord" Header="{l:T ColInfo}" Binding="{Binding Info}" Width="*" />
+              </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- Empty state -->
+            <StackPanel IsVisible="{Binding IsEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" IsHitTestVisible="False">
+              <Image Source="/Assets/logo.png" Width="72" Height="72" Opacity="0.85" />
+              <TextBlock Text="{l:T EmptyTitle}" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+              <TextBlock Text="{l:T EmptyHint}" Classes="muted" HorizontalAlignment="Center" />
+            </StackPanel>
+          </Panel>
+        </Border>
+
+        <GridSplitter Grid.Row="2" ResizeDirection="Rows" />
+
+        <!-- Details -->
+        <Border Grid.Row="3" Classes="card" Padding="0">
+          <Panel>
+            <TextBlock Text="{l:T NoSelection}" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       IsVisible="{Binding !HasSelection}" />
+            <Grid ColumnDefinitions="*,8,1.3*" IsVisible="{Binding HasSelection}">
+              <ScrollViewer Padding="12">
+                <StackPanel>
+                  <TextBlock Classes="section" Text="{l:T Details}" />
+                  <ItemsControl ItemsSource="{Binding SelectedLayers}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="pk:PacketLayer">
+                        <StackPanel Margin="0,0,0,10">
+                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12.5" Foreground="{DynamicResource AccentAltBrush}" Margin="0,0,0,4" />
+                          <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="2,0,0,0" Padding="10,0,0,0">
+                          <ItemsControl ItemsSource="{Binding Fields}">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="pk:PacketField">
+                                <Grid ColumnDefinitions="170,*" Margin="0,1">
+                                  <TextBlock Text="{Binding Name}" Classes="muted" FontSize="12" />
+                                  <SelectableTextBlock Grid.Column="1" Text="{Binding Value}" FontFamily="{StaticResource MonoFont}" FontSize="12" TextWrapping="Wrap" />
+                                </Grid>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                          </Border>
+                        </StackPanel>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </ScrollViewer>
+
+              <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+              <TabControl Grid.Column="2" Padding="12,4">
+                <TabItem Header="{l:T HexDump}" FontSize="13">
+                  <ScrollViewer HorizontalScrollBarVisibility="Auto">
+                    <SelectableTextBlock Text="{Binding SelectedHexDump}" FontFamily="{StaticResource MonoFont}" FontSize="12.5" />
+                  </ScrollViewer>
+                </TabItem>
+                <TabItem Header="{l:T PayloadText}" FontSize="13">
+                  <ScrollViewer>
+                    <SelectableTextBlock Text="{Binding SelectedPayloadText}" FontFamily="{StaticResource MonoFont}" FontSize="12.5" TextWrapping="Wrap" />
+                  </ScrollViewer>
+                </TabItem>
+              </TabControl>
+            </Grid>
+          </Panel>
+        </Border>
+      </Grid>
+
+      <!-- ============================== Dashboard ============================== -->
+      <ScrollViewer Grid.Column="2">
+        <StackPanel Spacing="12">
+          <UniformGrid Columns="2" RowSpacing="12" ColumnSpacing="12">
+            <Border Classes="card">
+              <StackPanel>
+                <TextBlock Classes="caption" Text="{l:T Packets}" />
+                <TextBlock Classes="kpi" Text="{Binding StatPackets, Converter={x:Static conv:AppConverters.Number}}" />
+              </StackPanel>
+            </Border>
+            <Border Classes="card">
+              <StackPanel>
+                <TextBlock Classes="caption" Text="{l:T Data}" />
+                <TextBlock Classes="kpi" Text="{Binding StatBytes}" />
+              </StackPanel>
+            </Border>
+            <Border Classes="card">
+              <StackPanel>
+                <TextBlock Classes="caption" Text="{l:T PacketsPerSecond}" />
+                <TextBlock Classes="kpi" Text="{Binding StatPacketsPerSecond}" />
+              </StackPanel>
+            </Border>
+            <Border Classes="card">
+              <StackPanel>
+                <TextBlock Classes="caption" Text="{l:T Bandwidth}" />
+                <TextBlock Classes="kpi" Text="{Binding StatBandwidth}" FontSize="18" />
+              </StackPanel>
+            </Border>
+          </UniformGrid>
+
+          <Border Classes="card">
+            <StackPanel>
+              <TextBlock Classes="caption" Text="{l:T Activity}" />
+              <c:Sparkline Values="{Binding RateHistory}" Height="70" Margin="0,6,0,0"
+                           Stroke="{DynamicResource AccentBrush}" Fill="{DynamicResource ChartFill}" />
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="caption" Text="{l:T ProtocolMix}" />
+              <ProgressBar Value="{Binding UdpShare}" Maximum="100" Height="10" CornerRadius="5"
+                           Foreground="{DynamicResource UdpBrush}" Background="{DynamicResource TcpBrush}" />
+              <Grid ColumnDefinitions="*,*">
+                <TextBlock FontSize="12">
+                  <Run Text="●" Foreground="{DynamicResource UdpBrush}" />
+                  <Run Text="UDP" />
+                  <Run Text="{Binding StatUdp, Converter={x:Static conv:AppConverters.Number}}" FontWeight="SemiBold" />
+                </TextBlock>
+                <TextBlock Grid.Column="1" FontSize="12" HorizontalAlignment="Right">
+                  <Run Text="●" Foreground="{DynamicResource TcpBrush}" />
+                  <Run Text="TCP" />
+                  <Run Text="{Binding StatTcp, Converter={x:Static conv:AppConverters.Number}}" FontWeight="SemiBold" />
+                </TextBlock>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card">
+            <StackPanel>
+              <TextBlock Classes="caption" Text="{l:T TopHosts}" />
+              <ItemsControl ItemsSource="{Binding TopHosts}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="st:TalkerStat">
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,3">
+                      <TextBlock Text="{Binding Key}" FontFamily="{StaticResource MonoFont}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" Text="{Binding Bytes, Converter={x:Static conv:AppConverters.Bytes}}" Classes="muted" FontSize="12" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card">
+            <StackPanel>
+              <TextBlock Classes="caption" Text="{l:T TopPorts}" />
+              <ItemsControl ItemsSource="{Binding TopPorts}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="st:TalkerStat">
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,3">
+                      <TextBlock Text="{Binding Key}" FontFamily="{StaticResource MonoFont}" FontSize="12" />
+                      <TextBlock Grid.Column="1" Classes="muted" FontSize="12">
+                        <Run Text="{Binding Packets, Converter={x:Static conv:AppConverters.Number}}" />
+                        <Run Text="pkt" />
+                      </TextBlock>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </DockPanel>
+</Window>

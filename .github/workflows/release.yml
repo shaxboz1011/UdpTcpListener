@@ -1,0 +1,118 @@
+# Publishes a release when a version tag is pushed:
+#
+#   git tag v1.2.0 && git push origin v1.2.0
+#
+# Each platform is packaged with Velopack and uploaded to the same GitHub Release.
+# Installed apps poll GitHub Releases, download only the delta and update themselves.
+# Tags with a pre-release suffix (v1.2.0-beta.1) become GitHub pre-releases and are
+# not offered to users on the stable channel.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  VPK_VERSION: 1.2.161
+  APP_ID: UdpTcpListener
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet test --solution UdpTcpListener.slnx -c Release
+
+  package:
+    name: Package (${{ matrix.rid }})
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Sequential so the second platform merges into the release created by the first.
+      max-parallel: 1
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            exe: UdpTcpListener.exe
+            icon: src/UdpTcpListener.App/Assets/icon.ico
+            cli_archive: zip
+          - os: ubuntu-22.04
+            rid: linux-x64
+            exe: UdpTcpListener
+            icon: src/UdpTcpListener.App/Assets/logo.png
+            cli_archive: tar.gz
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Resolve version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$VERSION" == *-* ]]; then echo "pre=--pre" >> "$GITHUB_OUTPUT"; else echo "pre=" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Install tools
+        run: |
+          dotnet tool install -g vpk --version "$VPK_VERSION"
+          if [[ "$RUNNER_OS" == "Linux" ]]; then sudo apt-get update && sudo apt-get install -y squashfs-tools; fi
+
+      - name: Publish desktop app
+        run: >
+          dotnet publish src/UdpTcpListener.App -c Release -r ${{ matrix.rid }} --self-contained
+          -o publish/app -p:MinVerVersionOverride=${{ steps.version.outputs.version }}
+
+      - name: Download previous release (for delta updates)
+        continue-on-error: true # the very first release has nothing to diff against
+        run: >
+          vpk download github --repoUrl "${{ github.server_url }}/${{ github.repository }}"
+          --token "${{ secrets.GITHUB_TOKEN }}" --outputDir Releases ${{ steps.version.outputs.pre }}
+
+      - name: Pack with Velopack
+        run: >
+          vpk pack --packId "$APP_ID" --packVersion "${{ steps.version.outputs.version }}"
+          --packDir publish/app --mainExe "${{ matrix.exe }}"
+          --packTitle "UdpTcpListener" --packAuthors "shaxboz1011"
+          --icon "${{ matrix.icon }}" --outputDir Releases
+
+      - name: Upload to GitHub Release
+        run: >
+          vpk upload github --repoUrl "${{ github.server_url }}/${{ github.repository }}"
+          --token "${{ secrets.GITHUB_TOKEN }}" --outputDir Releases
+          --tag "$GITHUB_REF_NAME" --releaseName "UdpTcpListener $GITHUB_REF_NAME"
+          --publish --merge ${{ steps.version.outputs.pre }}
+
+      - name: Publish and attach CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dotnet publish src/UdpTcpListener.Cli -c Release -r ${{ matrix.rid }} --self-contained \
+            -p:PublishSingleFile=true -p:MinVerVersionOverride=${{ steps.version.outputs.version }} -o publish/cli
+          NAME="udptcplistener-cli-${{ steps.version.outputs.version }}-${{ matrix.rid }}"
+          if [[ "${{ matrix.cli_archive }}" == "zip" ]]; then
+            (cd publish/cli && 7z a "../../$NAME.zip" udptcplistener.exe > /dev/null)
+            FILE="$NAME.zip"
+          else
+            tar -czf "$NAME.tar.gz" -C publish/cli udptcplistener
+            FILE="$NAME.tar.gz"
+          fi
+          gh release upload "$GITHUB_REF_NAME" "$FILE" --clobber

@@ -90,7 +90,7 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.tag }}
           fetch-depth: 0
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - run: dotnet test --solution UdpTcpListener.slnx -c Release
@@ -128,7 +128,7 @@ jobs:
           ref: ${{ needs.prepare.outputs.tag }}
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 

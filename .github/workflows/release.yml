@@ -1,10 +1,12 @@
-# Publishes a release when a version tag is pushed:
+# Publishes a release. Two ways to start it:
 #
-#   git tag v1.2.0 && git push origin v1.2.0
+#   1. Push a version tag:       git tag v1.2.0 && git push origin v1.2.0
+#   2. Run it from GitHub:       Actions → Release → Run workflow → version "1.2.0"
+#      (creates the v1.2.0 tag on the selected main commit, then releases it)
 #
 # Each platform is packaged with Velopack and uploaded to the same GitHub Release.
 # Installed apps poll GitHub Releases, download only the delta and update themselves.
-# Tags with a pre-release suffix (v1.2.0-beta.1) become GitHub pre-releases and are
+# Versions with a pre-release suffix (1.2.0-beta.1) become GitHub pre-releases and are
 # not offered to users on the stable channel.
 
 name: Release
@@ -12,20 +14,81 @@ name: Release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, without the "v" (e.g. 1.2.0 or 1.3.0-beta.1)'
+        required: true
+        type: string
 
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 env:
   VPK_VERSION: 1.2.161
   APP_ID: UdpTcpListener
 
 jobs:
+  prepare:
+    name: Prepare version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      pre: ${{ steps.version.outputs.pre }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            VERSION="${INPUT_VERSION#v}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$VERSION' is not a valid version (expected e.g. 1.2.0 or 1.3.0-beta.1)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$VERSION" == *-* ]]; then echo "pre=--pre" >> "$GITHUB_OUTPUT"; else echo "pre=" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Create tag (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error::Run the release workflow from the main branch (selected: $GITHUB_REF_NAME)."
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+            echo "::error::Tag $TAG already exists. Choose a new version; published versions must never be reused."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "UdpTcpListener $TAG" "$GITHUB_SHA"
+          # Pushed with GITHUB_TOKEN, so this does not start a second run of this workflow.
+          git push origin "$TAG"
+
   test:
+    needs: prepare
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ needs.prepare.outputs.tag }}
           fetch-depth: 0
       - uses: actions/setup-dotnet@v4
         with:
@@ -34,7 +97,7 @@ jobs:
 
   package:
     name: Package (${{ matrix.rid }})
-    needs: test
+    needs: [prepare, test]
     runs-on: ${{ matrix.os }}
     strategy:
       # Sequential so the second platform merges into the release created by the first.
@@ -54,22 +117,20 @@ jobs:
     defaults:
       run:
         shell: bash
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      PRE: ${{ needs.prepare.outputs.pre }}
 
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ needs.prepare.outputs.tag }}
           fetch-depth: 0
 
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-
-      - name: Resolve version
-        id: version
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          if [[ "$VERSION" == *-* ]]; then echo "pre=--pre" >> "$GITHUB_OUTPUT"; else echo "pre=" >> "$GITHUB_OUTPUT"; fi
 
       - name: Install tools
         run: |
@@ -79,17 +140,17 @@ jobs:
       - name: Publish desktop app
         run: >
           dotnet publish src/UdpTcpListener.App -c Release -r ${{ matrix.rid }} --self-contained
-          -o publish/app -p:MinVerVersionOverride=${{ steps.version.outputs.version }}
+          -o publish/app -p:MinVerVersionOverride=$VERSION
 
       - name: Download previous release (for delta updates)
         continue-on-error: true # the very first release has nothing to diff against
         run: >
           vpk download github --repoUrl "${{ github.server_url }}/${{ github.repository }}"
-          --token "${{ secrets.GITHUB_TOKEN }}" --outputDir Releases ${{ steps.version.outputs.pre }}
+          --token "${{ secrets.GITHUB_TOKEN }}" --outputDir Releases $PRE
 
       - name: Pack with Velopack
         run: >
-          vpk pack --packId "$APP_ID" --packVersion "${{ steps.version.outputs.version }}"
+          vpk pack --packId "$APP_ID" --packVersion "$VERSION"
           --packDir publish/app --mainExe "${{ matrix.exe }}"
           --packTitle "UdpTcpListener" --packAuthors "shaxboz1011"
           --icon "${{ matrix.icon }}" --outputDir Releases
@@ -98,16 +159,16 @@ jobs:
         run: >
           vpk upload github --repoUrl "${{ github.server_url }}/${{ github.repository }}"
           --token "${{ secrets.GITHUB_TOKEN }}" --outputDir Releases
-          --tag "$GITHUB_REF_NAME" --releaseName "UdpTcpListener $GITHUB_REF_NAME"
-          --publish --merge ${{ steps.version.outputs.pre }}
+          --tag "$TAG" --releaseName "UdpTcpListener $TAG"
+          --publish --merge $PRE
 
       - name: Publish and attach CLI
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           dotnet publish src/UdpTcpListener.Cli -c Release -r ${{ matrix.rid }} --self-contained \
-            -p:PublishSingleFile=true -p:MinVerVersionOverride=${{ steps.version.outputs.version }} -o publish/cli
-          NAME="udptcplistener-cli-${{ steps.version.outputs.version }}-${{ matrix.rid }}"
+            -p:PublishSingleFile=true -p:MinVerVersionOverride=$VERSION -o publish/cli
+          NAME="udptcplistener-cli-$VERSION-${{ matrix.rid }}"
           if [[ "${{ matrix.cli_archive }}" == "zip" ]]; then
             (cd publish/cli && 7z a "../../$NAME.zip" udptcplistener.exe > /dev/null)
             FILE="$NAME.zip"
@@ -115,4 +176,4 @@ jobs:
             tar -czf "$NAME.tar.gz" -C publish/cli udptcplistener
             FILE="$NAME.tar.gz"
           fi
-          gh release upload "$GITHUB_REF_NAME" "$FILE" --clobber
+          gh release upload "$TAG" "$FILE" --clobber

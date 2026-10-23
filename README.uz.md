@@ -61,10 +61,10 @@ dotnet run --project src/UdpTcpListener.App
 
 ## Yangi versiya chiqarish
 
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
+Release'ni ikki usulda boshlash mumkin:
+
+- **GitHub orqali:** `main` branch'ida **Actions → Release → Run workflow** ni bosing va versiyani kiriting (masalan, `1.0.0`). Tag'ni workflow o'zi yaratadi.
+- **git orqali:** `git tag v1.0.0 && git push origin v1.0.0`
 
 GitHub Actions testlarni ishga tushiradi, Windows va Linux uchun paketlarni yig'adi va GitHub Release'ni e'lon qiladi. O'rnatilgan dasturlar shundan keyin avtomatik yangilanadi. Batafsil: [docs/RELEASING.md](docs/RELEASING.md).
 

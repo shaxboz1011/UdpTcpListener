@@ -13,7 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Export to PCAP, CSV, JSON and text; open classic `.pcap` files.
 - Automatic updates through Velopack and GitHub Releases.
 - Command-line tool with flags (`--interface`, `--protocol`, `--src`, `--dst`, `--port`, `--filter`, `--output`, `--count`).
-- GitHub Actions CI (Windows + Linux) and a tag-driven release pipeline.
+- GitHub Actions CI (Windows + Linux) and a release pipeline. A release can be started by pushing a tag or with "Run workflow" in the Actions tab.
 
 ### Fixed (compared with the original console tool)
 - No more 100% CPU usage while capturing (busy `while (true)` loop removed).

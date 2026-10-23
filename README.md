@@ -106,12 +106,12 @@ tests/
 
 ## Releasing
 
-Push a version tag and GitHub Actions does the rest: it runs the tests, packages Windows and Linux with Velopack, publishes the GitHub Release and attaches the CLI archives. Existing installs then update themselves.
+Start a release in either of these two ways:
 
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
+- **From GitHub:** go to **Actions → Release → Run workflow** on `main` and enter a version, e.g. `1.0.0`. The workflow creates the `v1.0.0` tag for you.
+- **From git:** `git tag v1.0.0 && git push origin v1.0.0`
+
+GitHub Actions does the rest: it runs the tests, packages Windows and Linux with Velopack, publishes the GitHub Release and attaches the CLI archives. Existing installs then update themselves.
 
 Tags such as `v1.1.0-beta.1` become pre-releases and are not offered to stable users. See [docs/RELEASING.md](docs/RELEASING.md).
 

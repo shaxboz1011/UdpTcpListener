@@ -6,12 +6,9 @@ Releases are fully automated by [`.github/workflows/release.yml`](../.github/wor
 
 1. Make sure `main` is green in CI.
 2. Move the `[Unreleased]` notes in `CHANGELOG.md` under a new version heading and commit.
-3. Tag and push:
-
-   ```bash
-   git tag v1.2.0
-   git push origin v1.2.0
-   ```
+3. Start the release in one of two ways:
+   - **GitHub UI:** go to **Actions → Release → Run workflow**, keep the branch on `main` and enter the version without the `v` (e.g. `1.2.0`). The workflow checks that the version is valid and unused, then creates the `v1.2.0` tag on that commit.
+   - **git:** `git tag v1.2.0 && git push origin v1.2.0`
 
 That's it. The workflow then:
 

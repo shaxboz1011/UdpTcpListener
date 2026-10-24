@@ -38,6 +38,7 @@ public static class LinuxPackages
     public static string? FindExecutable(string name, Func<string, bool>? fileExists = null)
     {
         fileExists ??= File.Exists;
-        return SearchDirectories.Select(dir => Path.Combine(dir, name)).FirstOrDefault(fileExists);
+        // Join with "/" rather than Path.Combine: these are Linux paths even when the code runs on Windows (tests, CI).
+        return SearchDirectories.Select(dir => $"{dir}/{name}").FirstOrDefault(fileExists);
     }
 }

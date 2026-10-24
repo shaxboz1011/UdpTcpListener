@@ -64,11 +64,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public MainWindowViewModel(AppSettings settings)
     {
         _settings = settings;
-        Update.BeforeRestart = () =>
-        {
-            StopCapture();
-            SaveSettings();
-        };
+        Update.BeforeRestart = PrepareForRestart;
+        Setup = new SetupViewModel(url => Dialogs?.OpenUrlAsync(url) ?? Task.CompletedTask) { BeforeRestart = PrepareForRestart };
+        Setup.DriverInstalledByUser += (_, _) => RefreshDevices();
 
         SelectedProtocol = Protocols.First(p => p.Value == settings.Protocol);
         SelectedTheme = Themes.First(t => t.Value == settings.Theme);
@@ -95,6 +93,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public IFileDialogs? Dialogs { get; set; }
 
     public UpdateViewModel Update { get; } = new();
+
+    public SetupViewModel Setup { get; }
 
     /// <summary>Raised after new rows were appended, so the view can auto-scroll.</summary>
     public event EventHandler<PacketRecord>? PacketsAppended;
@@ -183,9 +183,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     public bool HasError => ErrorMessage is not null;
 
-    [ObservableProperty]
-    public partial bool IsCaptureLibraryMissing { get; set; }
-
     // ---------------------------------------------------------------- packets
 
     public ObservableCollection<PacketRecord> VisiblePackets { get; } = [];
@@ -273,13 +270,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         {
             foreach (var device in PcapCaptureEngine.GetDevices())
                 Devices.Add(device);
-            IsCaptureLibraryMissing = false;
             ErrorMessage = Devices.Count == 0 ? L["NoDevices"] : null;
+            Setup.Report(driverInstalled: true, elevationRecommended: Devices.Count == 0);
         }
         catch (CaptureLibraryUnavailableException)
         {
-            IsCaptureLibraryMissing = true;
-            ErrorMessage = OperatingSystem.IsWindows() ? L["NpcapMissing"] : L["LibpcapMissing"];
+            // The setup assistant explains this and offers a one-click install.
+            ErrorMessage = null;
+            Setup.Report(driverInstalled: false, elevationRecommended: false);
         }
 
         SelectedDevice = Devices.FirstOrDefault(d => d.Name == previous)
@@ -423,6 +421,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or SharpPcap.PcapException)
         {
             ErrorMessage = L.Format("StartFailed", ex.Message);
+            // Opening a device usually fails for lack of rights (Linux without root, restricted Npcap).
+            if (ex is SharpPcap.PcapException)
+                Setup.Report(driverInstalled: true, elevationRecommended: true);
             return;
         }
 
@@ -584,6 +585,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     }
 
     // ---------------------------------------------------------------- lifetime
+
+    private void PrepareForRestart()
+    {
+        StopCapture();
+        SaveSettings();
+    }
 
     public void SaveSettings()
     {

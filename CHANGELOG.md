@@ -12,6 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Live dashboard: packets/sec, bandwidth, activity chart, protocol mix, top hosts and services.
 - Export to PCAP, CSV, JSON and text; open classic `.pcap` files.
 - Automatic updates through Velopack and GitHub Releases.
+- Setup assistant: installs the capture driver with one click and can restart the app as administrator. On Windows it downloads Npcap from npcap.com, verifies its Authenticode signature and runs the installer. On Linux it installs libpcap through apt, dnf, yum, zypper, pacman or apk, asking for the password with pkexec.
 - Command-line tool with flags (`--interface`, `--protocol`, `--src`, `--dst`, `--port`, `--filter`, `--output`, `--count`).
 - GitHub Actions CI (Windows + Linux) and a release pipeline. A release can be started by pushing a tag or with "Run workflow" in the Actions tab.
 

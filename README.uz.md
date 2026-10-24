@@ -23,6 +23,7 @@
 - **Jonli dashboard:** paket/sek, tezlik, 60 soniyalik faollik grafigi, protokollar ulushi, top hostlar va top xizmatlar.
 - **Eksport:** **PCAP** (Wireshark'da ochiladi), CSV, JSON yoki matnli log. Mavjud `.pcap` fayllarni **ochish** ham mumkin.
 - **Istalgan tarmoq turida ishlaydi:** Ethernet, Wi-Fi, loopback, VPN/tun, Linux `any`.
+- **Bitta tugma bilan sozlash.** Drayver o'rnatilmagan bo'lsa, ichki "Sozlash yordamchisi" uni o'zi o'rnatadi. Windows'da rasmiy Npcap o'rnatuvchisini yuklab olib imzosini tekshiradi, Linux'da libpcap'ni paket menejeri orqali o'rnatadi. Dasturni administrator sifatida qayta ishga tushirish ham mumkin.
 - **Yorug'/qorong'i mavzu** va **3 til:** O'zbekcha, Русский, English.
 - **O'zini o'zi yangilaydi.** O'rnatilgan dastur GitHub Releases'ni tekshiradi, faqat o'zgargan qismini yuklab oladi va bitta tugma bilan yangi versiyada qayta ishga tushadi.
 - **CLI** server va skriptlar uchun: `udptcplistener -i eth0 -p udp --port 53 -o dns.pcap`.
@@ -39,6 +40,12 @@ Oxirgi versiyani **[Releases sahifasidan](https://github.com/shaxboz1011/UdpTcpL
 Yangi versiya chiqqanda dastur ichida **"Yangilash va qayta ishga tushirish"** tugmasi bilan banner paydo bo'ladi.
 
 ### Talablar
+
+Dasturdagi **"Sozlash"** tugmasi quyidagilarni bitta bosish bilan bajaradi:
+
+![Sozlash yordamchisi](docs/screenshots/setup-assistant.png)
+
+Qo'lda bajarish uchun:
 
 - **Windows:** **[Npcap](https://npcap.com/#download)** ni o'rnating va *"WinPcap API-compatible Mode"* ni belgilang. Npcap litsenziyasi uni dastur ichiga qo'shib tarqatishga ruxsat bermaydi. Shuning uchun u o'rnatilmagan bo'lsa, dastur yuklab olish havolasini ko'rsatadi.
 - **Linux:** libpcap'ni o'rnating (`sudo apt install libpcap0.8`). So'ng dasturni root sifatida ishga tushiring yoki CLI'ga bir marta huquq bering:

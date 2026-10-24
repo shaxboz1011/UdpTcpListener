@@ -97,6 +97,34 @@
     <Setter Property="BorderBrush" Value="#66E11D48" />
   </Style>
 
+  <!-- Setup assistant -->
+  <Style Selector="Border.card.setup">
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="Padding" Value="18,14" />
+  </Style>
+  <Style Selector="Border.step">
+    <Setter Property="Width" Value="30" />
+    <Setter Property="Height" Value="30" />
+    <Setter Property="CornerRadius" Value="15" />
+    <Setter Property="Margin" Value="0,0,14,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Background" Value="{DynamicResource SubtleFill}" />
+  </Style>
+  <Style Selector="Border.step TextBlock">
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  <Style Selector="Border.step.ok">
+    <Setter Property="Background" Value="{DynamicResource UdpBrush}" />
+  </Style>
+  <Style Selector="Border.step.warn">
+    <Setter Property="Background" Value="{DynamicResource WarnBrush}" />
+  </Style>
+  <Style Selector="Border.step.ok TextBlock, Border.step.warn TextBlock">
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+
   <Style Selector="DataGrid">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="GridLinesVisibility" Value="None" />

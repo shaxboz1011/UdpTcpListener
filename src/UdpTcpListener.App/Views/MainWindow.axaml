@@ -58,6 +58,13 @@
             </DataTemplate>
           </ComboBox.ItemTemplate>
         </ComboBox>
+        <Button Classes="tool" Command="{Binding Setup.ToggleCommand}" ToolTip.Tip="{l:T SetupTitle}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="{DynamicResource UdpBrush}" IsVisible="{Binding Setup.IsReady}" />
+            <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="{DynamicResource WarnBrush}" IsVisible="{Binding !Setup.IsReady}" />
+            <TextBlock Text="{l:T SetupButton}" />
+          </StackPanel>
+        </Button>
         <Button Classes="link" Content="GitHub" Command="{Binding OpenUrlCommand}"
                 CommandParameter="https://github.com/shaxboz1011/UdpTcpListener" />
         <TextBlock Text="{Binding Update.CurrentVersion, StringFormat='v{0}'}" Classes="muted" VerticalAlignment="Center" FontSize="12" />
@@ -83,13 +90,101 @@
         </Grid>
       </Border>
 
+      <!-- Setup assistant: one-click install of the capture driver and admin restart. -->
+      <Border Classes="card setup" IsVisible="{Binding Setup.IsOpen}" Margin="0,0,0,12">
+        <StackPanel Spacing="14">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="2">
+              <TextBlock Text="{l:T SetupTitle}" FontSize="15" FontWeight="SemiBold" />
+              <TextBlock Text="{l:T SetupSubtitle}" Classes="muted" FontSize="12" />
+            </StackPanel>
+            <Button Grid.Column="1" Classes="link" Content="✕" Command="{Binding Setup.ToggleCommand}" VerticalAlignment="Top" />
+          </Grid>
+
+          <!-- Step 1: capture driver -->
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <Border Classes="step" Classes.ok="{Binding Setup.DriverInstalled}" Classes.warn="{Binding !Setup.DriverInstalled}">
+              <Panel>
+                <TextBlock Text="✓" IsVisible="{Binding Setup.DriverInstalled}" />
+                <TextBlock Text="1" IsVisible="{Binding !Setup.DriverInstalled}" />
+              </Panel>
+            </Border>
+            <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+              <TextBlock FontWeight="SemiBold">
+                <Run Text="{Binding Setup.DriverName}" />
+                <Run Text="—" />
+                <Run Text="{l:T SetupDriverTitle}" />
+              </TextBlock>
+              <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" Text="{l:T SetupDriverOk}" IsVisible="{Binding Setup.DriverInstalled}" />
+              <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" Text="{Binding Setup.DriverMissingText}" IsVisible="{Binding !Setup.DriverInstalled}" />
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <StackPanel.IsVisible>
+                  <MultiBinding Converter="{x:Static BoolConverters.And}">
+                    <Binding Path="!Setup.DriverInstalled" />
+                    <Binding Path="Setup.HasManualCommand" />
+                  </MultiBinding>
+                </StackPanel.IsVisible>
+                <TextBlock Classes="muted" FontSize="12" Text="{l:T SetupManualHint}" VerticalAlignment="Center" />
+                <Border Background="{DynamicResource SubtleFill}" CornerRadius="6" Padding="8,3">
+                  <SelectableTextBlock Text="{Binding Setup.ManualCommand}" FontFamily="{StaticResource MonoFont}" FontSize="12" />
+                </Border>
+              </StackPanel>
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="12,0,0,0"
+                        IsVisible="{Binding !Setup.DriverInstalled}">
+              <Button Classes="link" Content="{l:T SetupWebsite}" Command="{Binding Setup.OpenDriverWebsiteCommand}" />
+              <Button Classes="primary" Content="{l:T SetupInstall}" Command="{Binding Setup.InstallDriverCommand}"
+                      IsVisible="{Binding Setup.CanInstallDriver}" />
+            </StackPanel>
+          </Grid>
+
+          <!-- Step 2: administrator rights -->
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <Border Classes="step" Classes.ok="{Binding Setup.IsElevated}" Classes.warn="{Binding Setup.ElevationRecommended}">
+              <Panel>
+                <TextBlock Text="✓" IsVisible="{Binding Setup.IsElevated}" />
+                <TextBlock Text="2" IsVisible="{Binding !Setup.IsElevated}" />
+              </Panel>
+            </Border>
+            <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+              <TextBlock FontWeight="SemiBold" Text="{l:T SetupAdminTitle}" />
+              <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" Text="{l:T SetupAdminOk}" IsVisible="{Binding Setup.IsElevated}" />
+              <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" Text="{l:T SetupAdminNeeded}" IsVisible="{Binding Setup.ElevationRecommended}" />
+              <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" Text="{l:T SetupAdminHint}">
+                <TextBlock.IsVisible>
+                  <MultiBinding Converter="{x:Static BoolConverters.And}">
+                    <Binding Path="!Setup.IsElevated" />
+                    <Binding Path="!Setup.ElevationRecommended" />
+                  </MultiBinding>
+                </TextBlock.IsVisible>
+              </TextBlock>
+            </StackPanel>
+            <Button Grid.Column="2" Classes="tool" Classes.primary="{Binding Setup.ElevationRecommended}" Margin="12,0,0,0" VerticalAlignment="Center"
+                    Content="{l:T SetupRestartElevated}" Command="{Binding Setup.RestartElevatedCommand}"
+                    IsVisible="{Binding Setup.CanRestartElevated}" />
+          </Grid>
+
+          <!-- Progress, result, restart -->
+          <StackPanel Spacing="6" IsVisible="{Binding Setup.IsBusy}">
+            <ProgressBar IsIndeterminate="{Binding Setup.IsProgressIndeterminate}" Value="{Binding Setup.Progress}" Maximum="100" Height="6" />
+          </StackPanel>
+          <TextBlock Text="{Binding Setup.Status}" FontSize="12" TextWrapping="Wrap"
+                     IsVisible="{Binding Setup.Status, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          <SelectableTextBlock Text="{Binding Setup.Error}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}"
+                               IsVisible="{Binding Setup.Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          <Border Classes="banner info" IsVisible="{Binding Setup.RestartRequired}">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{l:T SetupRestartRequired}" TextWrapping="Wrap" VerticalAlignment="Center" />
+              <Button Grid.Column="1" Classes="primary" Margin="12,0,0,0" Content="{l:T SetupRestartNow}" Command="{Binding Setup.RestartAppCommand}" />
+            </Grid>
+          </Border>
+        </StackPanel>
+      </Border>
+
       <Border Classes="banner error" IsVisible="{Binding HasError}" Margin="0,0,0,8">
         <Grid ColumnDefinitions="*,Auto">
           <SelectableTextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" VerticalAlignment="Center" />
           <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-            <Button Classes="primary" Content="{l:T DownloadNpcap}" IsVisible="{Binding IsCaptureLibraryMissing}"
-                    Command="{Binding OpenUrlCommand}" CommandParameter="https://npcap.com/#download" />
-            <Button Classes="link" Content="{l:T Retry}" IsVisible="{Binding IsCaptureLibraryMissing}" Command="{Binding RefreshDevicesCommand}" />
             <Button Classes="link" Content="✕" Command="{Binding DismissErrorCommand}" />
           </StackPanel>
         </Grid>

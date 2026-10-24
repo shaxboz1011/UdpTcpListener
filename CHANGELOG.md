@@ -5,6 +5,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-24
+
+### Added
+- Setup assistant: installs the capture driver with one click and can restart the app as administrator. On Windows it downloads Npcap from npcap.com, verifies its Authenticode signature and runs the installer. On Linux it installs libpcap through apt, dnf, yum, zypper, pacman or apk, asking for the password with pkexec.
+- A "Setup" button in the header, with a green or amber dot showing whether capture is ready.
+
+### Changed
+- The "Npcap is missing" error banner is replaced by the setup assistant, which opens by itself when the driver is missing, no devices are found, or a device cannot be opened.
+
+## [0.1.0] - 2026-10-23
+
 ### Added
 - Cross-platform desktop app (Windows, Linux) built with Avalonia, with light/dark themes and Uzbek, Russian and English UI.
 - Live packet list with protocol colours, TCP flags, instant search and auto-scroll.
@@ -23,3 +34,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - IP filtering now happens in the kernel (BPF) instead of after parsing every packet.
 - Log files are written to the current directory (or a chosen path) instead of the install folder.
 - Malformed packets can no longer crash the capture thread.
+
+[Unreleased]: https://github.com/shaxboz1011/UdpTcpListener/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/shaxboz1011/UdpTcpListener/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/shaxboz1011/UdpTcpListener/releases/tag/v0.1.0

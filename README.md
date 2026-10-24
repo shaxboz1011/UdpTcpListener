@@ -30,6 +30,7 @@
 - **Live dashboard.** It shows packets/sec, bandwidth, a 60-second activity chart, the protocol mix, top hosts and top services.
 - **Export** to **PCAP** (open it in Wireshark), CSV, JSON or a plain-text log. You can also **open** existing `.pcap` files.
 - **Works on any link layer:** Ethernet, Wi-Fi, loopback, VPN/tun and Linux `any`.
+- **One-click setup.** If the capture driver is missing, the built-in setup assistant installs it for you. On Windows it downloads the official Npcap installer and checks its signature; on Linux it installs libpcap with your package manager. It can also restart the app as administrator.
 - **Light/dark themes** and **three languages:** O'zbekcha, Русский and English.
 - **Self-updating.** Installed copies check GitHub Releases, download only the delta and restart into the new version with one click.
 - **CLI** for servers and scripts: `udptcplistener -i eth0 -p udp --port 53 -o dns.pcap`.
@@ -49,7 +50,11 @@ The desktop app updates itself. When a new version is published you'll see a ban
 
 ### Requirements
 
-Packet capture needs a capture driver and elevated rights:
+Packet capture needs a capture driver and sometimes elevated rights. **The app's setup assistant (the "Setup" button) handles both with one click:**
+
+![Setup assistant](docs/screenshots/setup-assistant.png)
+
+To do it by hand:
 
 - **Windows**: install **[Npcap](https://npcap.com/#download)** and tick *"Install Npcap in WinPcap API-compatible Mode"*. Npcap's licence doesn't allow it to be bundled, so the app shows a download link if it is missing.
 - **Linux**: install libpcap (`sudo apt install libpcap0.8`, `sudo dnf install libpcap`). Then either run as root, or give the binary capture rights once:

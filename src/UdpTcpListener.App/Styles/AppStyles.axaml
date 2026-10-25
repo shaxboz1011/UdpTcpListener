@@ -156,6 +156,12 @@
     <Setter Property="Padding" Value="12,2,4,2" />
   </Style>
 
+  <Style Selector="TabControl > TabItem">
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="MinHeight" Value="40" />
+  </Style>
+
   <Style Selector="TabStrip TabStripItem">
     <Setter Property="FontSize" Value="14" />
     <Setter Property="FontWeight" Value="SemiBold" />

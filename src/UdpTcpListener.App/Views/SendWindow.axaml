@@ -1,0 +1,182 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:UdpTcpListener.App.ViewModels"
+        xmlns:l="using:UdpTcpListener.App.Localization"
+        xmlns:core="using:UdpTcpListener.Core.Capture"
+        x:Class="UdpTcpListener.App.Views.SendWindow"
+        x:DataType="vm:SendViewModel"
+        Icon="/Assets/icon.ico"
+        Title="{l:T SendTitle}"
+        Width="900" Height="760" MinWidth="680" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource AppBackground}">
+
+  <DockPanel Margin="16">
+    <!-- Bottom: status + start/stop -->
+    <Border DockPanel.Dock="Bottom" Classes="card" Margin="0,12,0,0" Padding="14,10">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel VerticalAlignment="Center" Spacing="6">
+          <ProgressBar IsVisible="{Binding IsBusy}" IsIndeterminate="{Binding IsSendTab}" Value="{Binding ReplayProgressPercent}" Maximum="100" Height="6" />
+          <SelectableTextBlock Text="{Binding Status}" FontSize="12" TextWrapping="Wrap" Classes="muted"
+                               IsVisible="{Binding !HasError}" />
+          <SelectableTextBlock Text="{Binding Status}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}"
+                               IsVisible="{Binding HasError}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0">
+          <Button Classes="tool" Content="{l:T Stop}" Command="{Binding StopCommand}" IsVisible="{Binding IsBusy}" />
+          <Button Classes="primary" Command="{Binding StartCommand}" MinWidth="140" HorizontalContentAlignment="Center">
+            <Panel>
+              <TextBlock Text="{l:T SendButton}" IsVisible="{Binding IsSendTab}" />
+              <TextBlock Text="{l:T ReplayButton}" IsVisible="{Binding IsReplayTab}" />
+            </Panel>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <TabControl SelectedIndex="{Binding SelectedTabIndex}" IsEnabled="{Binding !IsBusy}">
+      <!-- ============================== Send ============================== -->
+      <TabItem Header="{l:T SendTab}">
+        <Grid RowDefinitions="Auto,Auto,*" Margin="0,12,0,0">
+          <Border Classes="card">
+            <StackPanel Spacing="12">
+              <WrapPanel ItemSpacing="12" LineSpacing="8">
+                <StackPanel>
+                  <TextBlock Classes="caption" Text="{l:T Protocol}" />
+                  <ComboBox ItemsSource="{Binding Transports}" SelectedItem="{Binding SelectedTransport}" Width="100">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:TransportOption"><TextBlock Text="{Binding Label}" /></DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="caption" Text="{l:T SendHost}" />
+                  <TextBox Text="{Binding Host}" Width="240" />
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="caption" Text="{l:T Port}" />
+                  <NumericUpDown Value="{Binding Port}" Minimum="1" Maximum="65535" FormatString="0" Width="130" />
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="caption" Text="{l:T SendCount}" />
+                  <NumericUpDown Value="{Binding Count}" Minimum="0" Maximum="100000000" FormatString="0" Width="130" ToolTip.Tip="{l:T SendCountHint}" />
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="caption" Text="{l:T SendInterval}" />
+                  <NumericUpDown Value="{Binding IntervalMs}" Minimum="0" Maximum="3600000" Increment="10" FormatString="0" Width="130" />
+                </StackPanel>
+              </WrapPanel>
+
+              <StackPanel Spacing="4">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Classes="caption" Text="{l:T SendPayload}" VerticalAlignment="Bottom" />
+                  <ComboBox Grid.Column="1" ItemsSource="{Binding Encodings}" SelectedItem="{Binding SelectedEncoding}" MinWidth="170">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:EncodingOption"><TextBlock Text="{Binding Label}" /></DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </Grid>
+                <TextBox Text="{Binding Payload}" AcceptsReturn="True" TextWrapping="Wrap" Height="110"
+                         FontFamily="{StaticResource MonoFont}" FontSize="12.5" />
+                <TextBlock Text="{Binding PayloadInfo}" FontSize="11" Classes="muted" IsVisible="{Binding !PayloadInvalid}" />
+                <TextBlock Text="{Binding PayloadInfo}" FontSize="11" Foreground="{DynamicResource DangerBrush}" IsVisible="{Binding PayloadInvalid}" />
+              </StackPanel>
+
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <CheckBox Content="{l:T SendWaitReply}" IsChecked="{Binding WaitForReply}" />
+                <NumericUpDown Value="{Binding ReplyTimeoutMs}" Minimum="1" Maximum="600000" Increment="100" FormatString="0" Width="130"
+                               IsEnabled="{Binding WaitForReply}" />
+                <TextBlock Text="ms" VerticalAlignment="Center" Classes="muted" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <TextBlock Grid.Row="1" Classes="caption" Text="{l:T SendRepliesTitle}" Margin="2,14,0,6" />
+          <Border Grid.Row="2" Classes="card" Padding="0">
+            <Panel>
+              <TextBlock Text="{l:T SendNoReplies}" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasReplies}" />
+              <ScrollViewer Padding="12" IsVisible="{Binding HasReplies}">
+                <ItemsControl ItemsSource="{Binding Replies}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ReplyView">
+                      <Border Classes="chunk b" Margin="0,0,0,8">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="{Binding Header}" Classes="muted" FontSize="11" />
+                          <SelectableTextBlock Text="{Binding Dump}" FontFamily="{StaticResource MonoFont}" FontSize="12" />
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </Panel>
+          </Border>
+        </Grid>
+      </TabItem>
+
+      <!-- ============================== Replay ============================== -->
+      <TabItem Header="{l:T ReplayTab}">
+        <ScrollViewer Margin="0,12,0,0">
+          <Border Classes="card">
+            <StackPanel Spacing="14">
+              <Border Classes="banner info">
+                <StackPanel Spacing="4">
+                  <TextBlock Text="{Binding ReplaySource}" TextWrapping="Wrap" FontWeight="SemiBold" IsVisible="{Binding HasReplayPackets}" />
+                  <TextBlock Text="{l:T ReplayHowTo}" TextWrapping="Wrap" FontSize="12" Classes="muted" />
+                </StackPanel>
+              </Border>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="caption" Text="{l:T ReplayMode}" />
+                <ComboBox ItemsSource="{Binding ReplayModes}" SelectedItem="{Binding SelectedReplayMode}" MinWidth="360">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ReplayModeOption"><TextBlock Text="{Binding Label}" /></DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+              </StackPanel>
+
+              <StackPanel Spacing="4" IsVisible="{Binding !IsInjectMode}">
+                <TextBlock Classes="caption" Text="{l:T ReplayTarget}" />
+                <TextBox Text="{Binding ReplayTarget}" PlaceholderText="{l:T ReplayTargetPlaceholder}" Width="320" HorizontalAlignment="Left" />
+                <TextBlock Text="{l:T ReplayTargetHint}" FontSize="11" Classes="muted" TextWrapping="Wrap" />
+              </StackPanel>
+
+              <StackPanel Spacing="4" IsVisible="{Binding IsInjectMode}">
+                <TextBlock Classes="caption" Text="{l:T Device}" />
+                <ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" Width="360">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="core:NetworkDevice"><TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" /></DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Text="{l:T ReplayInjectHint}" FontSize="11" Classes="muted" TextWrapping="Wrap" />
+              </StackPanel>
+
+              <WrapPanel ItemSpacing="12" LineSpacing="8">
+                <StackPanel>
+                  <TextBlock Classes="caption" Text="{l:T ReplayTiming}" />
+                  <ComboBox ItemsSource="{Binding Timings}" SelectedItem="{Binding SelectedTiming}" Width="220">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:ReplayTimingOption"><TextBlock Text="{Binding Label}" /></DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+                <StackPanel IsVisible="{Binding IsSpeedTiming}">
+                  <TextBlock Classes="caption" Text="{l:T ReplaySpeed}" />
+                  <NumericUpDown Value="{Binding Speed}" Minimum="0.01" Maximum="10000" Increment="0.5" FormatString="0.##" Width="130" />
+                </StackPanel>
+                <StackPanel IsVisible="{Binding IsFixedTiming}">
+                  <TextBlock Classes="caption" Text="{l:T SendInterval}" />
+                  <NumericUpDown Value="{Binding ReplayIntervalMs}" Minimum="0" Maximum="3600000" Increment="10" FormatString="0" Width="130" />
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="caption" Text="{l:T ReplayLoops}" />
+                  <NumericUpDown Value="{Binding Loops}" Minimum="0" Maximum="1000000" FormatString="0" Width="130" ToolTip.Tip="{l:T SendCountHint}" />
+                </StackPanel>
+              </WrapPanel>
+            </StackPanel>
+          </Border>
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>

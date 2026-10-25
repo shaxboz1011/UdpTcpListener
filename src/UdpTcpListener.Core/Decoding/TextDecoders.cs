@@ -68,7 +68,8 @@ public sealed class JsonDecoder : IPayloadDecoder
 
     internal static bool LooksLikeHttp(ReadOnlySpan<byte> data) =>
         data.StartsWith("HTTP/"u8) || data.StartsWith("GET "u8) || data.StartsWith("POST "u8) || data.StartsWith("PUT "u8)
-        || data.StartsWith("PATCH "u8) || data.StartsWith("DELETE "u8) || data.StartsWith("HEAD "u8) || data.StartsWith("OPTIONS "u8);
+        || data.StartsWith("PATCH "u8) || data.StartsWith("DELETE "u8) || data.StartsWith("HEAD "u8) || data.StartsWith("OPTIONS "u8)
+        || data.StartsWith("CONNECT "u8) || data.StartsWith("TRACE "u8);
 }
 
 /// <summary>Fallback for printable payloads (HTTP, line protocols, logs): shows the first lines.</summary>

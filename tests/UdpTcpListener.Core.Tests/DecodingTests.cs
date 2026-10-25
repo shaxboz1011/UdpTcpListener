@@ -153,6 +153,7 @@ public class DecodingTests
         Assert.Equal("Host: x", Find(http.Fields, "Line 2"));
 
         Assert.Equal("Text", Single(Udp(5000, 6000, "sensor=1 temp=21.5\n"u8.ToArray())).Protocol);
+        Assert.Equal("HTTP", Single(Tcp(50000, 3128, "CONNECT example.com:443 HTTP/1.1\r\n\r\n"u8.ToArray())).Protocol);
     }
 
     [Fact]

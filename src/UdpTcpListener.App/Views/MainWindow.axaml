@@ -287,6 +287,7 @@
               </Flyout>
             </Button.Flyout>
           </Button>
+          <Button Classes="tool" Content="{l:T SendOpen}" Command="{Binding OpenSenderCommand}" ToolTip.Tip="{l:T SendTitle}" />
           <Button Classes="tool" Content="{l:T Clear}" Command="{Binding ClearCommand}" ToolTip.Tip="Ctrl+L" />
           <Button Classes="tool" Content="{l:T Open}" Command="{Binding OpenCommand}" ToolTip.Tip="Ctrl+O" />
           <Button Classes="tool" Content="{l:T Export}" Command="{Binding ExportCommand}" ToolTip.Tip="Ctrl+E" />
@@ -371,6 +372,9 @@
                       <Separator />
                       <MenuItem Header="{l:T CopyFrameHexDump}" Command="{Binding CopyPacketCommand}" CommandParameter="Frame" />
                     </MenuItem>
+                    <Separator />
+                    <MenuItem Header="{l:T ResendPacket}" Command="{Binding ResendPacketCommand}" />
+                    <MenuItem Header="{l:T ReplayVisible}" Command="{Binding ReplayVisibleCommand}" />
                   </ContextMenu>
                 </DataGrid.ContextMenu>
                 <DataGrid.Columns>
@@ -388,7 +392,7 @@
                   <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="Source" Header="{l:T ColSource}" Binding="{Binding Source}" Width="200" CellStyleClasses="mono" />
                   <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="Destination" Header="{l:T ColDestination}" Binding="{Binding Destination}" Width="200" CellStyleClasses="mono" />
                   <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="Length" Header="{l:T ColLength}" Binding="{Binding Length}" Width="90" CellStyleClasses="mono" />
-                  <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="Info" Header="{l:T ColInfo}" Binding="{Binding Info}" Width="*" />
+                  <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="Info" Header="{l:T ColInfo}" Binding="{Binding Converter={x:Static conv:AppConverters.PacketInfo}}" SortMemberPath="Info" Width="*" />
                 </DataGrid.Columns>
               </DataGrid>
 
@@ -415,6 +419,7 @@
                   <ContextMenu>
                     <MenuItem Header="{l:T ShowConversationPackets}" Command="{Binding ShowConversationPacketsCommand}" />
                     <MenuItem Header="{l:T FollowStream}" Command="{Binding FollowConversationCommand}" />
+                    <MenuItem Header="{l:T ReplayConversation}" Command="{Binding ReplayConversationCommand}" />
                   </ContextMenu>
                 </DataGrid.ContextMenu>
                 <DataGrid.Columns>
@@ -454,7 +459,27 @@
             <Grid ColumnDefinitions="*,8,1.3*" IsVisible="{Binding HasSelection}">
               <ScrollViewer Padding="12">
                 <StackPanel>
-                  <TextBlock Classes="section" Text="{l:T Details}" />
+                  <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                    <TextBlock Classes="section" Text="{l:T Details}" Margin="0" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Classes="link" Content="{l:T ProtocolsButton}" FontSize="12">
+                      <Button.Flyout>
+                        <Flyout Placement="BottomEdgeAlignedRight">
+                          <StackPanel Width="380" Spacing="10" Margin="4">
+                            <TextBlock Text="{l:T ProtocolsTitle}" FontWeight="SemiBold" />
+                            <TextBlock Text="{l:T ProtocolsHint}" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding ProtocolsSummary}" FontSize="12" TextWrapping="Wrap" />
+                            <SelectableTextBlock Text="{Binding ProtocolErrors}" FontSize="12" TextWrapping="Wrap"
+                                                 Foreground="{DynamicResource DangerBrush}" IsVisible="{Binding HasProtocolErrors}" />
+                            <SelectableTextBlock Text="{Binding ProtocolsFolder}" FontFamily="{StaticResource MonoFont}" FontSize="11" Classes="muted" TextWrapping="Wrap" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                              <Button Classes="tool" Content="{l:T ProtocolsOpenFolder}" Command="{Binding OpenProtocolsFolderCommand}" />
+                              <Button Classes="primary" Content="{l:T ProtocolsReload}" Command="{Binding ReloadProtocolsCommand}" />
+                            </StackPanel>
+                          </StackPanel>
+                        </Flyout>
+                      </Button.Flyout>
+                    </Button>
+                  </Grid>
                   <ItemsControl ItemsSource="{Binding SelectedLayers}">
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="pk:PacketLayer">

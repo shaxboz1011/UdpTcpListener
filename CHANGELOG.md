@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+- **Protocol decoders**: DNS/mDNS/LLMNR, MQTT 3.1.1/5, Modbus/TCP, JSON (including HTTP bodies) and a text/HTTP fallback. The decoded summary is shown in the Info column and the decoded fields at the top of the packet details.
+- **Custom protocols** from JSON files in the user's protocols folder. Supported: integer/float/bool/string/cstring/bytes fields, endianness, scale and unit, hex format, enum names, bit names, `expect` magic values, length fields and a summary template. Bad files are reported with the reason, and the app ships with a commented example. See `docs/CUSTOM_PROTOCOLS.md`.
+- **Send window**: send a UDP or TCP payload written as text with escapes, hex or Base64, with a count, interval and optional reply wait that shows the replies as hex dumps. "Send again…" pre-fills it from a captured packet.
+- **Replay**: re-send the shown packets or a conversation, either as payloads over a normal socket (to the original or a new destination; TCP over one connection) or as the original frames injected onto a device. Timing can be original (with a speed factor), a fixed interval or as fast as possible, with repeat.
+- CLI: `send` and `replay` subcommands, plus `-d/--decode` and `--protocols`.
+
 ## [0.3.0] - 2026-10-25
 
 ### Added

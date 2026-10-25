@@ -22,9 +22,9 @@ internal static class TestPackets
         return eth.Bytes;
     }
 
-    public static byte[] EthernetTcp(string src, string dst, ushort srcPort, ushort dstPort, byte[] payload, bool syn = false, bool ack = false)
+    public static byte[] EthernetTcp(string src, string dst, ushort srcPort, ushort dstPort, byte[] payload, bool syn = false, bool ack = false, uint seq = 0)
     {
-        var tcp = new TcpPacket(srcPort, dstPort) { PayloadData = payload, Synchronize = syn, Acknowledgment = ack };
+        var tcp = new TcpPacket(srcPort, dstPort) { PayloadData = payload, Synchronize = syn, Acknowledgment = ack, SequenceNumber = seq };
         var ip = CreateIp(src, dst);
         ip.PayloadPacket = tcp;
         var eth = new EthernetPacket(

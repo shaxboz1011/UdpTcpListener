@@ -39,6 +39,8 @@ public static class PacketDecoder
         TransportProtocol protocol;
         ushort srcPort, dstPort;
         string? flags = null;
+        uint? sequence = null;
+        var syn = false;
         byte[] payload;
 
         if (ip.Extract<UdpPacket>() is { } udp)
@@ -54,6 +56,8 @@ public static class PacketDecoder
             srcPort = tcp.SourcePort;
             dstPort = tcp.DestinationPort;
             flags = FormatTcpFlags(tcp);
+            sequence = tcp.SequenceNumber;
+            syn = tcp.Synchronize;
             payload = tcp.PayloadData ?? [];
         }
         else
@@ -73,6 +77,8 @@ public static class PacketDecoder
             SourcePort = srcPort,
             DestinationPort = dstPort,
             TcpFlags = flags,
+            TcpSequence = sequence,
+            TcpSyn = syn,
             Payload = payload,
             LinkType = linkType,
             RawData = data,

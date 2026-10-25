@@ -10,6 +10,7 @@ namespace UdpTcpListener.Core.Export;
 public enum ExportFormat
 {
     Pcap,
+    PcapNg,
     Csv,
     Json,
     Text,
@@ -26,9 +27,19 @@ public static class PacketWriter
     public static ExportFormat FormatFromPath(string path) => Path.GetExtension(path).ToLowerInvariant() switch
     {
         ".pcap" => ExportFormat.Pcap,
+        ".pcapng" => ExportFormat.PcapNg,
         ".csv" => ExportFormat.Csv,
         ".json" => ExportFormat.Json,
         _ => ExportFormat.Text,
+    };
+
+    public static string Extension(ExportFormat format) => format switch
+    {
+        ExportFormat.Pcap => ".pcap",
+        ExportFormat.PcapNg => ".pcapng",
+        ExportFormat.Csv => ".csv",
+        ExportFormat.Json => ".json",
+        _ => ".txt",
     };
 
     public static IPacketWriter Create(string path) => Create(File.Create(path), FormatFromPath(path));
@@ -36,6 +47,7 @@ public static class PacketWriter
     public static IPacketWriter Create(Stream stream, ExportFormat format) => format switch
     {
         ExportFormat.Pcap => new PcapPacketWriter(stream),
+        ExportFormat.PcapNg => new PcapNgPacketWriter(stream),
         ExportFormat.Csv => new CsvPacketWriter(stream),
         ExportFormat.Json => new JsonPacketWriter(stream),
         _ => new TextPacketWriter(stream),

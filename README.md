@@ -48,6 +48,8 @@
 
 ![Custom protocol decoded in the details pane](docs/screenshots/decoders.png)
 
+![Replay window](docs/screenshots/replay.png)
+
 ## Install
 
 Download the latest release from the **[Releases page](https://github.com/shaxboz1011/UdpTcpListener/releases/latest)**.

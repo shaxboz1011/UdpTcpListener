@@ -11,13 +11,13 @@ Everything stays free and open source (MIT). Items are roughly in priority order
 - [x] CLI with flags and interactive mode
 - [x] CI on Windows + Linux; tag-driven releases
 
-## v1.1: Analysis
-- [ ] **Conversations view**: group packets by 5-tuple with totals and duration
-- [ ] **Follow TCP/UDP stream**: reassemble a conversation as text/hex
-- [ ] Column sorting and a column chooser
-- [ ] pcapng read/write
-- [ ] Copy packet as hex / C array / Base64
-- [ ] Ring-buffer capture to disk with file rotation (long-running captures)
+## v1.1: Analysis ✅
+- [x] **Conversations view**: group packets by 5-tuple with totals and duration
+- [x] **Follow TCP/UDP stream**: reassemble a conversation as text/hex
+- [x] Column sorting and a column chooser
+- [x] pcapng read/write
+- [x] Copy packet as hex / C array / Base64
+- [x] Ring-buffer capture to disk with file rotation (long-running captures)
 
 ## v1.2: Tools for developers
 - [ ] **UDP/TCP sender**: craft and send packets, with repeat and rate options

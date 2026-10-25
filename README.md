@@ -28,7 +28,11 @@
 - **Instant search** across IPs, ports, protocols, flags and payload text.
 - **Packet details.** Each packet is broken down layer by layer (Frame → Ethernet → IP → UDP/TCP), with a hex dump and a payload-as-text view.
 - **Live dashboard.** It shows packets/sec, bandwidth, a 60-second activity chart, the protocol mix, top hosts and top services.
-- **Export** to **PCAP** (open it in Wireshark), CSV, JSON or a plain-text log. You can also **open** existing `.pcap` files.
+- **Conversations.** Every UDP/TCP conversation with packets and bytes per direction and duration. Show only one conversation's packets with one click.
+- **Follow stream.** Rebuilds what a TCP or UDP conversation actually said. TCP is put back in order, with retransmissions removed. Shown as text or a hex dump, with each side in its own colour.
+- **Copy as** hex, C array, Base64 or text, plus column sorting and a column chooser.
+- **Export** to **pcapng** or **pcap** (open them in Wireshark), CSV, JSON or a plain-text log. You can also **open** `.pcapng` and `.pcap` files.
+- **Save to disk while capturing**, for long captures. Files rotate by size and only the newest N are kept, so disk use stays bounded.
 - **Works on any link layer:** Ethernet, Wi-Fi, loopback, VPN/tun and Linux `any`.
 - **One-click setup.** If the capture driver is missing, the built-in setup assistant installs it for you. On Windows it downloads the official Npcap installer and checks its signature; on Linux it installs libpcap with your package manager. It can also restart the app as administrator.
 - **Light/dark themes** and **three languages:** O'zbekcha, Русский and English.
@@ -36,6 +40,8 @@
 - **CLI** for servers and scripts: `udptcplistener -i eth0 -p udp --port 53 -o dns.pcap`.
 
 ![Search and payload view — light theme](docs/screenshots/search-light.png)
+
+![Follow stream](docs/screenshots/follow-stream.png)
 
 ## Install
 
@@ -79,9 +85,23 @@ udptcplistener [options]
       --dst <ip>           Only packets to this IP
       --port <n>           Only packets where either side uses this port
   -f, --filter <bpf>       Extra BPF expression, e.g. "len > 100"
-  -o, --output <file>      .pcap .csv .json or .txt (default: <timestamp>.txt)
+  -o, --output <file>      .pcapng .pcap .csv .json or .txt (default: <timestamp>.txt)
+  -r, --read <file>        Read a .pcap/.pcapng file instead of capturing (with -o: convert it)
   -c, --count <n>          Stop after n packets
   -q, --quiet              Do not print packets to the console
+      --rotate-size <MB>   Long captures: start a new file after this many megabytes
+      --rotate-minutes <n> ... or after this many minutes
+      --rotate-files <n>   Keep only the newest n files (ring buffer)
+```
+
+Examples:
+
+```bash
+# Capture DNS into rotating 100 MB files, keeping the newest 10
+udptcplistener -i eth0 -p udp --port 53 --rotate-size 100 --rotate-files 10 -o dns.pcapng
+
+# Convert a capture to CSV, keeping only traffic from one host
+udptcplistener -r capture.pcapng --src 192.168.1.10 -o host.csv
 ```
 
 If you run it without `--interface`, it asks for the device and filters interactively, like the original tool.

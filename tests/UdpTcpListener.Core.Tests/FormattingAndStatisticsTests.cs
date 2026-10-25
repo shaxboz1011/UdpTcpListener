@@ -54,3 +54,10 @@ public class FormattingAndStatisticsTests
 
     private static PacketRecord Decode(byte[] data) => PacketDecoder.TryDecode(LinkLayers.Ethernet, data, TestPackets.Time, 1)!;
 }
+
+public class ReadableTextTests
+{
+    [Fact]
+    public void Keeps_line_breaks_and_tabs_and_masks_binary() =>
+        Assert.Equal("GET / HTTP/1.1\nHost:\tx\n..\r", Formatting.HexDump.ToReadableText("GET / HTTP/1.1\r\nHost:\tx\n\0\u0001\r"u8));
+}

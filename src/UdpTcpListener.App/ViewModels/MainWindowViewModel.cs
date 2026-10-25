@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UdpTcpListener.App.Localization;
 using UdpTcpListener.App.Services;
+using UdpTcpListener.Core.Analysis;
 using UdpTcpListener.Core.Capture;
 using UdpTcpListener.Core.Export;
 using UdpTcpListener.Core.Formatting;
@@ -56,6 +57,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private long _lastRatePackets;
     private long _lastRateBytes;
     private readonly Stopwatch _rateClock = new();
+    private readonly ConversationTracker _conversations = new();
+    private readonly Dictionary<ConversationKey, ConversationRow> _conversationRows = [];
+    private readonly Lock _recorderLock = new();
+    private RotatingPacketWriter? _recorder;
 
     public MainWindowViewModel() : this(new AppSettings())
     {
@@ -76,9 +81,17 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         PortText = settings.Port;
         CustomBpf = settings.CustomBpf;
         AutoScroll = settings.AutoScroll;
+        RecordToDisk = settings.RecordToDisk;
+        RecordFolder = settings.RecordFolder;
+        RecordFileSizeMb = Math.Max(1, settings.RecordFileSizeMb);
+        RecordMaxFiles = Math.Max(0, settings.RecordMaxFiles);
         StatusText = L["StatusReady"];
 
-        _engine.PacketCaptured += (_, packet) => _incoming.Enqueue(packet);
+        _engine.PacketCaptured += (_, packet) =>
+        {
+            _incoming.Enqueue(packet);
+            RecordPacket(packet);
+        };
 
         _uiTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(100), DispatcherPriority.Background, (_, _) => DrainIncoming());
         _rateTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => UpdateRates());
@@ -95,6 +108,85 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public UpdateViewModel Update { get; } = new();
 
     public SetupViewModel Setup { get; }
+
+    /// <summary>Packet-list columns the user hid; the view applies and updates them.</summary>
+    public ICollection<string> HiddenColumns => _settings.HiddenColumns;
+
+    // ---------------------------------------------------------------- conversations
+
+    public ObservableCollection<ConversationRow> Conversations { get; } = [];
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ShowConversationPacketsCommand), nameof(FollowConversationCommand))]
+    public partial ConversationRow? SelectedConversation { get; set; }
+
+    [ObservableProperty]
+    public partial int ConversationCount { get; set; }
+
+    /// <summary>0 = packets, 1 = conversations.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsPacketsTab), nameof(IsConversationsTab))]
+    public partial int SelectedTabIndex { get; set; }
+
+    public bool IsPacketsTab => SelectedTabIndex == 0;
+    public bool IsConversationsTab => SelectedTabIndex == 1;
+
+    partial void OnSelectedTabIndexChanged(int value)
+    {
+        if (value == 1)
+            RefreshConversations();
+    }
+
+    /// <summary>When set, the packet list shows only this conversation.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasConversationFilter), nameof(ConversationFilterText))]
+    public partial ConversationKey? ConversationFilter { get; set; }
+
+    partial void OnConversationFilterChanged(ConversationKey? value) => RebuildVisible();
+
+    public bool HasConversationFilter => ConversationFilter is not null;
+
+    public string? ConversationFilterText => ConversationFilter is { } key
+        ? $"{(key.Protocol == TransportProtocol.Udp ? "UDP" : "TCP")}  {key.EndpointA} ⇄ {key.EndpointB}"
+        : null;
+
+    // ---------------------------------------------------------------- save to disk
+
+    public static string DefaultRecordFolder { get; } = Path.Combine(UserDocumentsFolder(), "UdpTcpListener", "captures");
+
+    /// <summary>
+    /// The user's Documents folder. On Linux without XDG user dirs .NET returns an empty string here,
+    /// which would silently make the path relative to the working directory.
+    /// </summary>
+    private static string UserDocumentsFolder()
+    {
+        foreach (var folder in new[] { Environment.SpecialFolder.MyDocuments, Environment.SpecialFolder.UserProfile })
+        {
+            var path = Environment.GetFolderPath(folder);
+            if (Path.IsPathFullyQualified(path))
+                return path;
+        }
+        return Path.GetTempPath();
+    }
+
+    [ObservableProperty]
+    public partial bool RecordToDisk { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RecordFolderDisplay))]
+    public partial string? RecordFolder { get; set; }
+
+    public string RecordFolderDisplay => string.IsNullOrWhiteSpace(RecordFolder) ? DefaultRecordFolder : RecordFolder;
+
+    [ObservableProperty]
+    public partial decimal RecordFileSizeMb { get; set; }
+
+    [ObservableProperty]
+    public partial decimal RecordMaxFiles { get; set; }
+
+    /// <summary>File currently being written while recording, for the status bar.</summary>
+    [ObservableProperty]
+    public partial string? RecordingFile { get; set; }
 
     /// <summary>Raised after new rows were appended, so the view can auto-scroll.</summary>
     public event EventHandler<PacketRecord>? PacketsAppended;
@@ -200,6 +292,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelection))]
+    [NotifyCanExecuteChangedFor(nameof(FollowStreamCommand), nameof(FilterConversationCommand), nameof(CopyPacketCommand))]
     public partial PacketRecord? SelectedPacket { get; set; }
 
     public bool HasSelection => SelectedPacket is not null;
@@ -312,6 +405,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _all.Clear();
         VisiblePackets.Clear();
         _stats.Reset();
+        _conversations.Clear();
+        _conversationRows.Clear();
+        Conversations.Clear();
+        ConversationCount = 0;
+        ConversationFilter = null;
         _rateHistory.Clear();
         _lastRatePackets = _lastRateBytes = 0;
         SelectedPacket = null;
@@ -336,11 +434,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var path = await Dialogs.SaveCaptureAsync($"capture_{DateTime.Now:yyyyMMdd_HHmmss}.pcap");
+        var path = await Dialogs.SaveCaptureAsync($"capture_{DateTime.Now:yyyyMMdd_HHmmss}.pcapng");
         if (path is null)
             return;
 
-        // Export what the user sees: respects the search filter.
+        // Export what the user sees: respects the search and conversation filters.
         var packets = VisiblePackets.ToList();
         try
         {
@@ -366,12 +464,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         try
         {
-            var packets = await Task.Run(() => PcapFileReader.Read(path).ToList());
+            var packets = await Task.Run(() => CaptureFile.Read(path).ToList());
             Clear();
             foreach (var packet in packets)
                 Append(packet);
             RebuildVisible();
             RefreshStatistics();
+            RefreshConversations();
             ErrorMessage = null;
             StatusText = L.Format("StatusOpened", packets.Count, Path.GetFileName(path));
         }
@@ -379,6 +478,59 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         {
             ErrorMessage = ex.Message;
         }
+    }
+
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private void FollowStream() => ShowStream(ConversationKey.From(SelectedPacket!));
+
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private void FilterConversation() => ConversationFilter = ConversationKey.From(SelectedPacket!);
+
+    [RelayCommand]
+    private void ClearConversationFilter() => ConversationFilter = null;
+
+    [RelayCommand(CanExecute = nameof(HasConversationSelection))]
+    private void ShowConversationPackets()
+    {
+        ConversationFilter = SelectedConversation!.Key;
+        SelectedTabIndex = 0;
+    }
+
+    [RelayCommand(CanExecute = nameof(HasConversationSelection))]
+    private void FollowConversation() => ShowStream(SelectedConversation!.Key);
+
+    private bool HasConversationSelection() => SelectedConversation is not null;
+
+    private void ShowStream(ConversationKey key)
+    {
+        var stream = StreamReassembler.Follow(_all, key);
+        Dialogs?.ShowStream(new StreamViewModel(stream, Dialogs));
+    }
+
+    /// <param name="format">"Summary", "Frame" (hex dump of the whole frame) or a <see cref="CopyFormat"/> name (payload).</param>
+    [RelayCommand(CanExecute = nameof(HasSelectionFor))]
+    private async Task CopyPacketAsync(string format)
+    {
+        if (SelectedPacket is not { } p || Dialogs is null)
+            return;
+
+        var text = format switch
+        {
+            "Summary" => $"{p.Number}\t{p.Timestamp:HH:mm:ss.ffffff}\t{p.ProtocolName}\t{p.Source}\t{p.Destination}\t{p.Length}\t{p.Info}",
+            "Frame" => CopyFormats.Format(p.RawData, CopyFormat.HexDump),
+            _ => CopyFormats.Format(p.Payload, Enum.Parse<CopyFormat>(format)),
+        };
+        await Dialogs.CopyTextAsync(text);
+        StatusText = L["Copied"];
+    }
+
+    private bool HasSelectionFor(string _) => HasSelection;
+
+    [RelayCommand]
+    private async Task ChooseRecordFolderAsync()
+    {
+        if (Dialogs is not null && await Dialogs.PickFolderAsync() is { } folder)
+            RecordFolder = folder;
     }
 
     [RelayCommand]
@@ -414,12 +566,16 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             CustomExpression = CustomBpf,
         };
 
+        if (RecordToDisk && !StartRecording())
+            return;
+
         try
         {
             _engine.Start(SelectedDevice.Name, filter);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or SharpPcap.PcapException)
         {
+            StopRecording();
             ErrorMessage = L.Format("StartFailed", ex.Message);
             // Opening a device usually fails for lack of rights (Linux without root, restricted Npcap).
             if (ex is SharpPcap.PcapException)
@@ -444,14 +600,74 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             return;
 
         _engine.Stop();
+        StopRecording();
         _rateTimer.Stop();
         IsCapturing = false;
         IsPaused = false;
         DrainIncoming();
         _uiTimer.Stop();
+        RefreshConversations();
         StatPacketsPerSecond = "0";
         StatBandwidth = "0 B/s";
         RefreshStatus();
+    }
+
+    private bool StartRecording()
+    {
+        try
+        {
+            var recorder = new RotatingPacketWriter(new RotationOptions
+            {
+                Directory = RecordFolderDisplay,
+                BaseName = "capture",
+                Format = ExportFormat.PcapNg,
+                MaxFileBytes = (long)Math.Max(1, RecordFileSizeMb) * 1024 * 1024,
+                MaxFiles = (int)Math.Max(0, RecordMaxFiles),
+            });
+            lock (_recorderLock)
+                _recorder = recorder;
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            ErrorMessage = L.Format("RecordFailed", ex.Message);
+            return false;
+        }
+    }
+
+    private void StopRecording()
+    {
+        lock (_recorderLock)
+        {
+            _recorder?.Dispose();
+            _recorder = null;
+        }
+        RecordingFile = null;
+    }
+
+    /// <summary>Runs on the capture thread.</summary>
+    private void RecordPacket(PacketRecord packet)
+    {
+        lock (_recorderLock)
+        {
+            if (_recorder is null)
+                return;
+            try
+            {
+                _recorder.Write(packet);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Disk full or folder gone: stop recording but keep capturing.
+                _recorder.Dispose();
+                _recorder = null;
+                Dispatcher.UIThread.Post(() =>
+                {
+                    RecordingFile = null;
+                    ErrorMessage = L.Format("RecordFailed", ex.Message);
+                });
+            }
+        }
     }
 
     private void DrainIncoming()
@@ -490,6 +706,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         _all.Add(packet);
         _stats.Add(packet);
+        _conversations.Add(packet);
         TotalCount = _all.Count;
     }
 
@@ -515,6 +732,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         if (_engine.GetStatistics() is { } device)
             StatDropped = device.Dropped + device.InterfaceDropped;
+
+        lock (_recorderLock)
+            RecordingFile = _recorder?.CurrentFile is { } file ? Path.GetFileName(file) : null;
+
+        if (SelectedTabIndex == 1)
+            RefreshConversations();
     }
 
     private void RefreshStatistics()
@@ -527,6 +750,21 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         Replace(TopHosts, _stats.TopHosts(TopCount));
         Replace(TopPorts, _stats.TopPorts(TopCount));
+    }
+
+    private void RefreshConversations()
+    {
+        foreach (var summary in _conversations.Snapshot())
+        {
+            if (!_conversationRows.TryGetValue(summary.Key, out var row))
+            {
+                row = new ConversationRow(summary.Key);
+                _conversationRows[summary.Key] = row;
+                Conversations.Add(row);
+            }
+            row.Update(summary);
+        }
+        ConversationCount = _conversations.Count;
     }
 
     private static void Replace(ObservableCollection<TalkerStat> target, IReadOnlyList<TalkerStat> source)
@@ -563,6 +801,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private bool Matches(PacketRecord packet)
     {
+        if (ConversationFilter is { } conversation && !conversation.Matches(packet))
+            return false;
+
         var term = SearchText?.Trim();
         if (string.IsNullOrEmpty(term))
             return true;
@@ -576,7 +817,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private void RefreshStatus()
     {
-        var shown = string.IsNullOrWhiteSpace(SearchText) ? "" : "  ·  " + L.Format("Shown", VisiblePackets.Count, _all.Count);
+        var shown = string.IsNullOrWhiteSpace(SearchText) && ConversationFilter is null ? "" : "  ·  " + L.Format("Shown", VisiblePackets.Count, _all.Count);
         StatusText = IsCapturing
             ? (IsPaused ? L["StatusPaused"] : L.Format("StatusCapturing", SelectedDevice?.Description)) + shown
             : _all.Count > 0
@@ -603,6 +844,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _settings.Port = PortText;
         _settings.CustomBpf = CustomBpf;
         _settings.AutoScroll = AutoScroll;
+        _settings.RecordToDisk = RecordToDisk;
+        _settings.RecordFolder = RecordFolder;
+        _settings.RecordFileSizeMb = (int)Math.Max(1, RecordFileSizeMb);
+        _settings.RecordMaxFiles = (int)Math.Max(0, RecordMaxFiles);
         SettingsService.Save(_settings);
     }
 
@@ -611,5 +856,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _uiTimer.Stop();
         _rateTimer.Stop();
         _engine.Dispose();
+        StopRecording();
     }
 }

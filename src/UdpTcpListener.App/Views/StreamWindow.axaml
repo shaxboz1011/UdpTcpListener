@@ -1,0 +1,90 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:UdpTcpListener.App.ViewModels"
+        xmlns:l="using:UdpTcpListener.App.Localization"
+        x:Class="UdpTcpListener.App.Views.StreamWindow"
+        x:DataType="vm:StreamViewModel"
+        Icon="/Assets/icon.ico"
+        Title="{Binding Title}"
+        Width="1000" Height="720" MinWidth="640" MinHeight="400"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource AppBackground}">
+
+  <DockPanel Margin="16">
+    <!-- Header -->
+    <Border DockPanel.Dock="Top" Classes="card" Margin="0,0,0,12">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="6">
+          <TextBlock FontSize="15" FontWeight="SemiBold">
+            <Run Text="{l:T FollowStream}" />
+            <Run Text="·" />
+            <Run Text="{Binding ProtocolName}" />
+          </TextBlock>
+          <StackPanel Orientation="Horizontal" Spacing="16">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Border Classes="dirA" Width="10" Height="10" CornerRadius="5" VerticalAlignment="Center" />
+              <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="12">
+                <Run Text="{Binding EndpointA}" />
+                <Run Text="→" />
+                <Run Text="{Binding BytesAToB}" FontWeight="SemiBold" />
+              </TextBlock>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Border Classes="dirB" Width="10" Height="10" CornerRadius="5" VerticalAlignment="Center" />
+              <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="12">
+                <Run Text="{Binding EndpointB}" />
+                <Run Text="→" />
+                <Run Text="{Binding BytesBToA}" FontWeight="SemiBold" />
+              </TextBlock>
+            </StackPanel>
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <ComboBox ItemsSource="{Binding Directions}" SelectedItem="{Binding SelectedDirection}" MinWidth="170">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:StreamDirectionOption">
+                <TextBlock Text="{Binding Label}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <ComboBox ItemsSource="{Binding Modes}" SelectedItem="{Binding SelectedMode}" MinWidth="120">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:StreamModeOption">
+                <TextBlock Text="{Binding Label}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <Button Classes="tool" Content="{l:T Copy}" Command="{Binding CopyCommand}" />
+          <Button Classes="tool" Content="{l:T Save}" Command="{Binding SaveCommand}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border DockPanel.Dock="Top" Classes="banner info" Margin="0,0,0,12" IsVisible="{Binding IsTruncated}">
+      <TextBlock Text="{l:T StreamTruncated}" TextWrapping="Wrap" />
+    </Border>
+
+    <!-- Content -->
+    <Border Classes="card" Padding="0">
+      <Panel>
+        <TextBlock Text="{l:T StreamEmpty}" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center"
+                   IsVisible="{Binding IsEmpty}" />
+        <ScrollViewer Padding="14" HorizontalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding Chunks}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:StreamChunkView">
+                <Border Classes="chunk" Classes.a="{Binding IsAToB}" Classes.b="{Binding !IsAToB}" Margin="0,0,0,10">
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="{Binding Header}" Classes="muted" FontSize="11" />
+                    <SelectableTextBlock Text="{Binding Text}" FontFamily="{StaticResource MonoFont}" FontSize="12.5" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Panel>
+    </Border>
+  </DockPanel>
+</Window>

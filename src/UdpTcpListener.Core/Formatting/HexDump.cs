@@ -50,5 +50,22 @@ public static class HexDump
         return length < data.Length ? new string(chars) + "…" : new string(chars);
     }
 
+    /// <summary>
+    /// Payload as readable text for "Follow stream": printable ASCII plus tabs and line breaks
+    /// (CRLF becomes a single newline); every other byte becomes '.'.
+    /// </summary>
+    public static string ToReadableText(ReadOnlySpan<byte> data)
+    {
+        var sb = new StringBuilder(data.Length);
+        for (var i = 0; i < data.Length; i++)
+        {
+            var b = data[i];
+            if (b == '\r' && i + 1 < data.Length && data[i + 1] == '\n')
+                continue;
+            sb.Append(b is (byte)'\n' or (byte)'\t' or (byte)'\r' ? (char)b : ToPrintable(b));
+        }
+        return sb.ToString();
+    }
+
     private static char ToPrintable(byte b) => b is >= 0x20 and < 0x7f ? (char)b : '.';
 }

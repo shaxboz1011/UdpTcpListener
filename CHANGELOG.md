@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-25
+
 ### Added
 - **Conversations** tab: every UDP/TCP conversation with packets and bytes per direction, start time and duration. Right-click or double-click a row to show only its packets, or to follow its stream.
 - **Follow stream** window. TCP is reassembled in sequence order per direction, with retransmissions and overlaps removed, sequence-number wraparound handled, and data after a gap still shown. UDP is shown in arrival order. It offers text or hex dump, a direction filter, Copy and Save. The side that sent first is shown first.
@@ -44,6 +46,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Log files are written to the current directory (or a chosen path) instead of the install folder.
 - Malformed packets can no longer crash the capture thread.
 
-[Unreleased]: https://github.com/shaxboz1011/UdpTcpListener/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/shaxboz1011/UdpTcpListener/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/shaxboz1011/UdpTcpListener/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/shaxboz1011/UdpTcpListener/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/shaxboz1011/UdpTcpListener/releases/tag/v0.1.0

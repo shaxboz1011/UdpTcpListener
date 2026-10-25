@@ -30,6 +30,12 @@ public sealed record PacketRecord
     /// <summary>TCP flags such as "SYN, ACK"; null for UDP.</summary>
     public string? TcpFlags { get; init; }
 
+    /// <summary>TCP sequence number (used to reassemble streams); null for UDP.</summary>
+    public uint? TcpSequence { get; init; }
+
+    /// <summary>True when the TCP SYN flag is set (the stream starts at sequence + 1).</summary>
+    public bool TcpSyn { get; init; }
+
     public required byte[] Payload { get; init; }
     public required LinkLayers LinkType { get; init; }
     public required byte[] RawData { get; init; }

@@ -23,6 +23,15 @@ public sealed class AppSettings
     public string? CustomBpf { get; set; }
     public bool AutoScroll { get; set; } = true;
     public bool CheckForUpdates { get; set; } = true;
+
+    /// <summary>Packet-list columns the user hid (by column key).</summary>
+    public List<string> HiddenColumns { get; set; } = [];
+
+    // Save-to-disk (ring buffer) while capturing.
+    public bool RecordToDisk { get; set; }
+    public string? RecordFolder { get; set; }
+    public int RecordFileSizeMb { get; set; } = 100;
+    public int RecordMaxFiles { get; set; } = 10;
 }
 
 /// <summary>Persists <see cref="AppSettings"/> as JSON in the per-user application data folder.</summary>

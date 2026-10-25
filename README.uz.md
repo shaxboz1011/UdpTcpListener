@@ -21,7 +21,11 @@
 - **Tezkor qidiruv:** IP, port, protokol, flag va payload matni bo'yicha.
 - **Paket tafsilotlari.** Har bir paket qatlamma-qatlam ko'rsatiladi (Frame → Ethernet → IP → UDP/TCP). Hex dump va payload'ni matn sifatida ko'rish ham bor.
 - **Jonli dashboard:** paket/sek, tezlik, 60 soniyalik faollik grafigi, protokollar ulushi, top hostlar va top xizmatlar.
-- **Eksport:** **PCAP** (Wireshark'da ochiladi), CSV, JSON yoki matnli log. Mavjud `.pcap` fayllarni **ochish** ham mumkin.
+- **Ulanishlar (Conversations).** Har bir UDP/TCP ulanish uchun har ikki yo'nalish bo'yicha paketlar va hajm, hamda davomiylik. Bitta bosish bilan faqat o'sha ulanishning paketlarini ko'rish mumkin.
+- **Oqimni kuzatish (Follow stream).** TCP yoki UDP ulanishda aslida nima yuborilganini qayta tiklaydi. TCP paketlari to'g'ri tartibga keltiriladi, qayta yuborilganlari olib tashlanadi. Natija matn yoki hex ko'rinishida chiqadi, har bir tomon o'z rangida.
+- **Nusxa olish** hex, C massiv, Base64 yoki matn ko'rinishida. Ustunlar bo'yicha saralash va ustunlarni tanlash ham bor.
+- **Eksport:** **pcapng** yoki **pcap** (Wireshark'da ochiladi), CSV, JSON yoki matnli log. `.pcapng` va `.pcap` fayllarni **ochish** ham mumkin.
+- **Capture paytida diskka yozish** — uzoq capture uchun. Fayllar hajm bo'yicha almashadi va faqat oxirgi N tasi saqlanadi, shuning uchun disk to'lib qolmaydi.
 - **Istalgan tarmoq turida ishlaydi:** Ethernet, Wi-Fi, loopback, VPN/tun, Linux `any`.
 - **Bitta tugma bilan sozlash.** Drayver o'rnatilmagan bo'lsa, ichki "Sozlash yordamchisi" uni o'zi o'rnatadi. Windows'da rasmiy Npcap o'rnatuvchisini yuklab olib imzosini tekshiradi, Linux'da libpcap'ni paket menejeri orqali o'rnatadi. Dasturni administrator sifatida qayta ishga tushirish ham mumkin.
 - **Yorug'/qorong'i mavzu** va **3 til:** O'zbekcha, Русский, English.

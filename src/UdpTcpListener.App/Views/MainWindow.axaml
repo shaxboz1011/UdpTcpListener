@@ -252,6 +252,41 @@
           </Button>
           <ToggleButton Classes="tool" IsChecked="{Binding IsPaused, Mode=OneWay}" Command="{Binding TogglePauseCommand}"
                         IsEnabled="{Binding IsCapturing}" Content="{l:T Pause}" />
+          <ToggleButton Classes="tool" IsChecked="{Binding RecordToDisk}" IsEnabled="{Binding CanEditFilter}" ToolTip.Tip="{l:T RecordHint}">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Ellipse Width="8" Height="8" Fill="{DynamicResource DangerBrush}" VerticalAlignment="Center" />
+              <TextBlock Text="{l:T RecordToDisk}" />
+            </StackPanel>
+          </ToggleButton>
+          <Button Classes="tool" Content="⚙" Padding="10,8" ToolTip.Tip="{l:T RecordSettings}" IsEnabled="{Binding CanEditFilter}">
+            <Button.Flyout>
+              <Flyout Placement="BottomEdgeAlignedRight">
+                <StackPanel Width="360" Spacing="10" Margin="4">
+                  <TextBlock Text="{l:T RecordSettings}" FontWeight="SemiBold" />
+                  <TextBlock Text="{l:T RecordHint}" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+                  <StackPanel Spacing="4">
+                    <TextBlock Classes="caption" Text="{l:T RecordFolder}" />
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{Binding RecordFolderDisplay}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                 ToolTip.Tip="{Binding RecordFolderDisplay}" />
+                      <Button Grid.Column="1" Classes="tool" Margin="8,0,0,0" Content="{l:T Choose}" Command="{Binding ChooseRecordFolderCommand}" />
+                    </Grid>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="12">
+                    <StackPanel Spacing="4">
+                      <TextBlock Classes="caption" Text="{l:T RecordFileSize}" />
+                      <NumericUpDown Value="{Binding RecordFileSizeMb}" Minimum="1" Maximum="100000" Increment="10" FormatString="0" Width="170" />
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                      <TextBlock Classes="caption" Text="{l:T RecordMaxFiles}" />
+                      <NumericUpDown Value="{Binding RecordMaxFiles}" Minimum="0" Maximum="100000" Increment="1" FormatString="0" Width="170" />
+                    </StackPanel>
+                  </StackPanel>
+                  <TextBlock Text="{l:T RecordMaxFilesHint}" Classes="muted" FontSize="11" TextWrapping="Wrap" />
+                </StackPanel>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
           <Button Classes="tool" Content="{l:T Clear}" Command="{Binding ClearCommand}" ToolTip.Tip="Ctrl+L" />
           <Button Classes="tool" Content="{l:T Open}" Command="{Binding OpenCommand}" ToolTip.Tip="Ctrl+O" />
           <Button Classes="tool" Content="{l:T Export}" Command="{Binding ExportCommand}" ToolTip.Tip="Ctrl+E" />
@@ -264,60 +299,150 @@
       <Ellipse Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center"
                Fill="{DynamicResource UdpBrush}" IsVisible="{Binding IsCapturing}" />
       <TextBlock Grid.Column="1" Text="{Binding StatusText}" Classes="muted" FontSize="12" VerticalAlignment="Center" />
-      <TextBlock Grid.Column="2" Classes="muted" FontSize="12" VerticalAlignment="Center">
-        <Run Text="{l:T Dropped}" />
-        <Run Text="{Binding StatDropped}" />
-      </TextBlock>
+      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16">
+        <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding RecordingFile, Converter={x:Static ObjectConverters.IsNotNull}}">
+          <Ellipse Width="8" Height="8" Fill="{DynamicResource DangerBrush}" VerticalAlignment="Center" />
+          <TextBlock Classes="muted" FontSize="12" VerticalAlignment="Center">
+            <Run Text="{l:T Recording}" />
+            <Run Text="{Binding RecordingFile}" />
+          </TextBlock>
+        </StackPanel>
+        <TextBlock Classes="muted" FontSize="12" VerticalAlignment="Center">
+          <Run Text="{l:T Dropped}" />
+          <Run Text="{Binding StatDropped}" />
+        </TextBlock>
+      </StackPanel>
     </Grid>
 
     <!-- ============================== Main area ============================== -->
     <Grid ColumnDefinitions="*,12,330">
 
       <Grid RowDefinitions="Auto,*,8,300">
-        <!-- Search -->
-        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
-          <TextBox Text="{Binding SearchText}" PlaceholderText="{l:T Search}" />
-          <CheckBox Grid.Column="1" Content="{l:T AutoScroll}" IsChecked="{Binding AutoScroll}" Margin="12,0,0,0" />
+        <!-- Tabs, search and list tools -->
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="0,0,0,8">
+          <TabStrip SelectedIndex="{Binding SelectedTabIndex}" VerticalAlignment="Center">
+            <TabStripItem Content="{l:T TabPackets}" />
+            <TabStripItem>
+              <TextBlock>
+                <Run Text="{l:T TabConversations}" />
+                <Run Text="{Binding ConversationCount, StringFormat='({0})'}" />
+              </TextBlock>
+            </TabStripItem>
+          </TabStrip>
+          <TextBox Grid.Column="1" Margin="12,0,0,0" Text="{Binding SearchText}" PlaceholderText="{l:T Search}"
+                   IsVisible="{Binding IsPacketsTab}" VerticalAlignment="Center" />
+          <Border Grid.Column="2" Classes="chip" Margin="8,0,0,0" VerticalAlignment="Center" IsVisible="{Binding HasConversationFilter}">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+              <TextBlock Text="{Binding ConversationFilterText}" FontFamily="{StaticResource MonoFont}" FontSize="12" VerticalAlignment="Center" />
+              <Button Classes="link" Content="✕" Padding="6,0" Command="{Binding ClearConversationFilterCommand}" ToolTip.Tip="{l:T ClearFilter}" />
+            </StackPanel>
+          </Border>
+          <Button x:Name="ColumnsButton" Grid.Column="3" Classes="tool" Margin="8,0,0,0" Content="{l:T Columns}"
+                  IsVisible="{Binding IsPacketsTab}" VerticalAlignment="Center" />
+          <CheckBox Grid.Column="4" Content="{l:T AutoScroll}" IsChecked="{Binding AutoScroll}" Margin="12,0,0,0"
+                    IsVisible="{Binding IsPacketsTab}" />
         </Grid>
 
-        <!-- Packet list -->
-        <Border Grid.Row="1" Classes="card" Padding="0" ClipToBounds="True">
-          <Panel>
-            <DataGrid x:Name="PacketGrid"
-                      ItemsSource="{Binding VisiblePackets}"
-                      SelectedItem="{Binding SelectedPacket}"
-                      IsReadOnly="True"
-                      CanUserReorderColumns="True"
-                      CanUserResizeColumns="True"
-                      CanUserSortColumns="False"
-                      SelectionMode="Single">
-              <DataGrid.Columns>
-                <DataGridTextColumn x:DataType="pk:PacketRecord" Header="{l:T ColNo}" Binding="{Binding Number}" Width="70" CellStyleClasses="mono" />
-                <DataGridTextColumn x:DataType="pk:PacketRecord" Header="{l:T ColTime}" Binding="{Binding Timestamp, StringFormat='{}{0:HH:mm:ss.ffffff}'}" Width="140" CellStyleClasses="mono" />
-                <DataGridTemplateColumn x:DataType="pk:PacketRecord" Header="{l:T ColProtocol}" Width="105">
-                  <DataGridTemplateColumn.CellTemplate>
-                    <DataTemplate x:DataType="pk:PacketRecord">
-                      <Border Classes="pill" Background="{Binding Protocol, Converter={x:Static conv:AppConverters.ProtocolBrush}}" Margin="8,0">
-                        <TextBlock Text="{Binding ProtocolName}" />
-                      </Border>
-                    </DataTemplate>
-                  </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-                <DataGridTextColumn x:DataType="pk:PacketRecord" Header="{l:T ColSource}" Binding="{Binding Source}" Width="200" CellStyleClasses="mono" />
-                <DataGridTextColumn x:DataType="pk:PacketRecord" Header="{l:T ColDestination}" Binding="{Binding Destination}" Width="200" CellStyleClasses="mono" />
-                <DataGridTextColumn x:DataType="pk:PacketRecord" Header="{l:T ColLength}" Binding="{Binding Length}" Width="90" CellStyleClasses="mono" />
-                <DataGridTextColumn x:DataType="pk:PacketRecord" Header="{l:T ColInfo}" Binding="{Binding Info}" Width="*" />
-              </DataGrid.Columns>
-            </DataGrid>
+        <Panel Grid.Row="1">
+          <!-- Packet list -->
+          <Border Classes="card" Padding="0" ClipToBounds="True" IsVisible="{Binding IsPacketsTab}">
+            <Panel>
+              <DataGrid x:Name="PacketGrid"
+                        ItemsSource="{Binding VisiblePackets}"
+                        SelectedItem="{Binding SelectedPacket}"
+                        IsReadOnly="True"
+                        CanUserReorderColumns="True"
+                        CanUserResizeColumns="True"
+                        CanUserSortColumns="True"
+                        SelectionMode="Single">
+                <DataGrid.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="{l:T FollowStream}" Command="{Binding FollowStreamCommand}" />
+                    <MenuItem Header="{l:T FilterConversation}" Command="{Binding FilterConversationCommand}" />
+                    <Separator />
+                    <MenuItem Header="{l:T CopyAs}">
+                      <MenuItem Header="{l:T CopySummary}" Command="{Binding CopyPacketCommand}" CommandParameter="Summary" />
+                      <Separator />
+                      <MenuItem Header="{l:T CopyPayloadHex}" Command="{Binding CopyPacketCommand}" CommandParameter="Hex" />
+                      <MenuItem Header="{l:T CopyPayloadHexStream}" Command="{Binding CopyPacketCommand}" CommandParameter="HexStream" />
+                      <MenuItem Header="{l:T CopyPayloadCArray}" Command="{Binding CopyPacketCommand}" CommandParameter="CArray" />
+                      <MenuItem Header="{l:T CopyPayloadBase64}" Command="{Binding CopyPacketCommand}" CommandParameter="Base64" />
+                      <MenuItem Header="{l:T CopyPayloadText}" Command="{Binding CopyPacketCommand}" CommandParameter="Text" />
+                      <Separator />
+                      <MenuItem Header="{l:T CopyFrameHexDump}" Command="{Binding CopyPacketCommand}" CommandParameter="Frame" />
+                    </MenuItem>
+                  </ContextMenu>
+                </DataGrid.ContextMenu>
+                <DataGrid.Columns>
+                  <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="No" Header="{l:T ColNo}" Binding="{Binding Number}" Width="70" CellStyleClasses="mono" />
+                  <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="Time" Header="{l:T ColTime}" Binding="{Binding Timestamp, StringFormat='{}{0:HH:mm:ss.ffffff}'}" Width="140" CellStyleClasses="mono" />
+                  <DataGridTemplateColumn x:DataType="pk:PacketRecord" Tag="Protocol" Header="{l:T ColProtocol}" Width="105" SortMemberPath="ProtocolName">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate x:DataType="pk:PacketRecord">
+                        <Border Classes="pill" Background="{Binding Protocol, Converter={x:Static conv:AppConverters.ProtocolBrush}}" Margin="8,0">
+                          <TextBlock Text="{Binding ProtocolName}" />
+                        </Border>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="Source" Header="{l:T ColSource}" Binding="{Binding Source}" Width="200" CellStyleClasses="mono" />
+                  <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="Destination" Header="{l:T ColDestination}" Binding="{Binding Destination}" Width="200" CellStyleClasses="mono" />
+                  <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="Length" Header="{l:T ColLength}" Binding="{Binding Length}" Width="90" CellStyleClasses="mono" />
+                  <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="Info" Header="{l:T ColInfo}" Binding="{Binding Info}" Width="*" />
+                </DataGrid.Columns>
+              </DataGrid>
 
-            <!-- Empty state -->
-            <StackPanel IsVisible="{Binding IsEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" IsHitTestVisible="False">
-              <Image Source="/Assets/logo.png" Width="72" Height="72" Opacity="0.85" />
-              <TextBlock Text="{l:T EmptyTitle}" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
-              <TextBlock Text="{l:T EmptyHint}" Classes="muted" HorizontalAlignment="Center" />
-            </StackPanel>
-          </Panel>
-        </Border>
+              <!-- Empty state -->
+              <StackPanel IsVisible="{Binding IsEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" IsHitTestVisible="False">
+                <Image Source="/Assets/logo.png" Width="72" Height="72" Opacity="0.85" />
+                <TextBlock Text="{l:T EmptyTitle}" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                <TextBlock Text="{l:T EmptyHint}" Classes="muted" HorizontalAlignment="Center" />
+              </StackPanel>
+            </Panel>
+          </Border>
+
+          <!-- Conversations -->
+          <Border Classes="card" Padding="0" ClipToBounds="True" IsVisible="{Binding IsConversationsTab}">
+            <Panel>
+              <DataGrid x:Name="ConversationGrid"
+                        ItemsSource="{Binding Conversations}"
+                        SelectedItem="{Binding SelectedConversation}"
+                        IsReadOnly="True"
+                        CanUserResizeColumns="True"
+                        CanUserSortColumns="True"
+                        SelectionMode="Single">
+                <DataGrid.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="{l:T ShowConversationPackets}" Command="{Binding ShowConversationPacketsCommand}" />
+                    <MenuItem Header="{l:T FollowStream}" Command="{Binding FollowConversationCommand}" />
+                  </ContextMenu>
+                </DataGrid.ContextMenu>
+                <DataGrid.Columns>
+                  <DataGridTemplateColumn x:DataType="vm:ConversationRow" Header="{l:T ColProtocol}" Width="100" SortMemberPath="ProtocolName">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate x:DataType="vm:ConversationRow">
+                        <Border Classes="pill" Background="{Binding Protocol, Converter={x:Static conv:AppConverters.ProtocolBrush}}" Margin="8,0">
+                          <TextBlock Text="{Binding ProtocolName}" />
+                        </Border>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTextColumn x:DataType="vm:ConversationRow" Header="{l:T ColEndpointA}" Binding="{Binding EndpointA}" Width="200" CellStyleClasses="mono" />
+                  <DataGridTextColumn x:DataType="vm:ConversationRow" Header="{l:T ColEndpointB}" Binding="{Binding EndpointB}" Width="200" CellStyleClasses="mono" />
+                  <DataGridTextColumn x:DataType="vm:ConversationRow" Header="{l:T ColPackets}" Binding="{Binding Packets}" Width="90" CellStyleClasses="mono" />
+                  <DataGridTextColumn x:DataType="vm:ConversationRow" Header="{l:T ColBytes}" Binding="{Binding Bytes, Converter={x:Static conv:AppConverters.Bytes}}" SortMemberPath="Bytes" Width="100" CellStyleClasses="mono" />
+                  <DataGridTextColumn x:DataType="vm:ConversationRow" Header="A → B" Binding="{Binding BytesAToB, Converter={x:Static conv:AppConverters.Bytes}}" SortMemberPath="BytesAToB" Width="100" CellStyleClasses="mono" />
+                  <DataGridTextColumn x:DataType="vm:ConversationRow" Header="B → A" Binding="{Binding BytesBToA, Converter={x:Static conv:AppConverters.Bytes}}" SortMemberPath="BytesBToA" Width="100" CellStyleClasses="mono" />
+                  <DataGridTextColumn x:DataType="vm:ConversationRow" Header="{l:T ColStart}" Binding="{Binding Start, StringFormat='{}{0:HH:mm:ss.fff}'}" Width="120" CellStyleClasses="mono" />
+                  <DataGridTextColumn x:DataType="vm:ConversationRow" Header="{l:T ColDuration}" Binding="{Binding DurationSeconds, StringFormat='{}{0:0.000} s'}" Width="*" CellStyleClasses="mono" />
+                </DataGrid.Columns>
+              </DataGrid>
+              <StackPanel IsVisible="{Binding IsEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                <TextBlock Text="{l:T NoConversations}" Classes="muted" />
+              </StackPanel>
+            </Panel>
+          </Border>
+        </Panel>
 
         <GridSplitter Grid.Row="2" ResizeDirection="Rows" />
 

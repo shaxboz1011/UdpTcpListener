@@ -21,9 +21,16 @@ internal static class Program
               --dst <ip>           Only packets to this IP
               --port <n>           Only packets where either side uses this port
           -f, --filter <bpf>       Extra BPF expression, e.g. "len > 100"
-          -o, --output <file>      Output file; format from extension: .pcap .csv .json .txt
+          -o, --output <file>      Output file; format from extension: .pcapng .pcap .csv .json .txt
                                    (default: <timestamp>.txt in the current directory)
+          -r, --read <file>        Read a .pcap/.pcapng file instead of capturing live
+                                   (with -o this converts it; -p/--src/--dst/--port still filter)
           -c, --count <n>          Stop after n packets
+
+        Long captures (writes a series of files next to --output):
+              --rotate-size <MB>   Start a new file after this many megabytes
+              --rotate-minutes <n> Start a new file after this many minutes
+              --rotate-files <n>   Keep only the newest n files (ring buffer)
           -q, --quiet              Do not print packets to the console
           -v, --version            Show version
           -h, --help               Show this help
@@ -56,6 +63,24 @@ internal static class Program
         {
             Console.WriteLine(typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown");
             return 0;
+        }
+
+        if (options.ReadFile is not null)
+        {
+            try
+            {
+                return ReadFile(options);
+            }
+            catch (ArgumentException ex)
+            {
+                Console.Error.WriteLine($"error: {ex.Message}");
+                return 2;
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
+            {
+                Console.Error.WriteLine($"error: {ex.Message}");
+                return 1;
+            }
         }
 
         IReadOnlyList<NetworkDevice> devices;
@@ -109,9 +134,7 @@ internal static class Program
             filter = PromptFilter(filter);
 
         var bpf = filter.ToBpf(); // validate before opening the output file
-        var outputPath = Path.GetFullPath(options.Output ?? $"{DateTime.Now:yyyyMMdd_HHmmss}.txt");
-
-        using var writer = PacketWriter.Create(outputPath);
+        using var writer = CreateWriter(options, out var outputDescription);
         if (writer is TextPacketWriter text)
             text.AutoFlush = true;
 
@@ -145,7 +168,7 @@ internal static class Program
 
         engine.Start(device.Name, filter);
         Console.Error.WriteLine($"Listening on {device.Description} [{bpf}]");
-        Console.Error.WriteLine($"Saving to {outputPath}");
+        Console.Error.WriteLine($"Saving to {outputDescription}");
         Console.Error.WriteLine("Press Ctrl+C to stop.");
 
         done.Wait();
@@ -154,11 +177,67 @@ internal static class Program
         lock (writerLock)
         {
             var stats = engine.GetStatistics();
-            Console.Error.WriteLine($"\nStopped. {written} packet(s) saved to {outputPath}" +
+            var saved = writer is RotatingPacketWriter rotating
+                ? $"{written} packet(s) written to {rotating.FilesCreated} file(s) {outputDescription}"
+                : $"{written} packet(s) saved to {outputDescription}";
+            Console.Error.WriteLine($"\nStopped. {saved}" +
                                     (stats is { Dropped: > 0 } ? $" ({stats.Dropped} dropped by the kernel)" : ""));
         }
 
         return 0;
+    }
+
+    private static int ReadFile(Options options)
+    {
+        if (!string.IsNullOrWhiteSpace(options.Filter.CustomExpression))
+            throw new ArgumentException("--filter (BPF) only works on live captures; use -p/--src/--dst/--port with --read.");
+
+        var matches = options.Filter.ToPredicate();
+        var path = Path.GetFullPath(options.ReadFile!);
+        using var writer = options.Output is null ? null : CreateWriter(options, out _);
+        long count = 0;
+
+        foreach (var packet in CaptureFile.Read(path))
+        {
+            if (!matches(packet))
+                continue;
+
+            writer?.Write(packet);
+            if (!options.Quiet && writer is null)
+                Console.WriteLine(TextPacketWriter.Format(packet));
+
+            if (++count == options.Count)
+                break;
+        }
+
+        Console.Error.WriteLine(writer is null
+            ? $"{count} packet(s) in {path}"
+            : $"{count} packet(s) from {path} written to {Path.GetFullPath(options.Output!)}");
+        return 0;
+    }
+
+    private static IPacketWriter CreateWriter(Options options, out string description)
+    {
+        if (!options.Rotates)
+        {
+            var path = Path.GetFullPath(options.Output ?? $"{DateTime.Now:yyyyMMdd_HHmmss}.txt");
+            description = path;
+            return PacketWriter.Create(path);
+        }
+
+        var target = Path.GetFullPath(options.Output ?? "capture.pcapng");
+        var rotation = new RotationOptions
+        {
+            Directory = Path.GetDirectoryName(target)!,
+            BaseName = Path.GetFileNameWithoutExtension(target),
+            Format = Path.HasExtension(target) ? PacketWriter.FormatFromPath(target) : ExportFormat.PcapNg,
+            MaxFileBytes = (options.RotateSizeMb ?? 0) * 1024 * 1024,
+            MaxFileAge = options.RotateMinutes is { } m ? TimeSpan.FromMinutes(m) : null,
+            MaxFiles = options.RotateFiles ?? 0,
+        };
+        description = $"{Path.Combine(rotation.Directory, rotation.BaseName)}_NNNNN_*{PacketWriter.Extension(rotation.Format)}" +
+                      (rotation.MaxFiles > 0 ? $" (keeping the newest {rotation.MaxFiles})" : "");
+        return new RotatingPacketWriter(rotation);
     }
 
     private static void PrintDevices(IReadOnlyList<NetworkDevice> devices)
@@ -235,6 +314,12 @@ internal static class Program
         public string? Interface { get; private init; }
         public string? Output { get; private init; }
         public long? Count { get; private init; }
+        public string? ReadFile { get; private init; }
+        public long? RotateSizeMb { get; private init; }
+        public int? RotateMinutes { get; private init; }
+        public int? RotateFiles { get; private init; }
+
+        public bool Rotates => RotateSizeMb is not null || RotateMinutes is not null;
         public CaptureFilter Filter { get; private init; } = new();
 
         public static Options Parse(string[] args)
@@ -253,6 +338,10 @@ internal static class Program
                     "-q" or "--quiet" => o with { Quiet = true },
                     "-i" or "--interface" => o with { Interface = Next() },
                     "-o" or "--output" => o with { Output = Next() },
+                    "-r" or "--read" => o with { ReadFile = Next() },
+                    "--rotate-size" => o with { RotateSizeMb = PositiveNumber(Next(), arg) },
+                    "--rotate-minutes" => o with { RotateMinutes = (int)PositiveNumber(Next(), arg) },
+                    "--rotate-files" => o with { RotateFiles = (int)PositiveNumber(Next(), arg) },
                     "-c" or "--count" => o with { Count = long.TryParse(Next(), out var c) && c > 0 ? c : throw new ArgumentException("--count must be a positive number.") },
                     "-p" or "--protocol" => o with { Filter = o.Filter with { Protocol = CaptureFilter.TryParseProtocol(Next(), out var p) ? p : throw new ArgumentException("--protocol must be udp, tcp or both.") } },
                     "--src" => o with { Filter = o.Filter with { SourceHost = Next() } },
@@ -262,7 +351,12 @@ internal static class Program
                     _ => throw new ArgumentException($"Unknown option '{arg}'."),
                 };
             }
+            if (o.RotateFiles is not null && !o.Rotates)
+                throw new ArgumentException("--rotate-files needs --rotate-size or --rotate-minutes.");
             return o;
         }
+
+        private static long PositiveNumber(string value, string option) =>
+            long.TryParse(value, out var n) && n is > 0 and <= int.MaxValue ? n : throw new ArgumentException($"{option} must be a positive number.");
     }
 }

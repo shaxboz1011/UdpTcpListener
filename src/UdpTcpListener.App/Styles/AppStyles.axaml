@@ -125,6 +125,44 @@
     <Setter Property="Foreground" Value="White" />
   </Style>
 
+  <!-- Follow stream: client (A) teal, server (B) indigo, like Wireshark's red/blue. -->
+  <Style Selector="Border.dirA">
+    <Setter Property="Background" Value="{DynamicResource UdpBrush}" />
+  </Style>
+  <Style Selector="Border.dirB">
+    <Setter Property="Background" Value="{DynamicResource TcpBrush}" />
+  </Style>
+  <Style Selector="Border.chunk">
+    <Setter Property="BorderThickness" Value="3,0,0,0" />
+    <Setter Property="Padding" Value="12,6" />
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+  <Style Selector="Border.chunk.a">
+    <Setter Property="BorderBrush" Value="{DynamicResource UdpBrush}" />
+    <Setter Property="Background" Value="#1414B8A6" />
+  </Style>
+  <Style Selector="Border.chunk.b">
+    <Setter Property="BorderBrush" Value="{DynamicResource TcpBrush}" />
+    <Setter Property="Background" Value="#146366F1" />
+    <Setter Property="Margin" Value="40,0,0,10" />
+  </Style>
+
+  <!-- Conversation filter chip above the packet list. -->
+  <Style Selector="Border.chip">
+    <Setter Property="Background" Value="{DynamicResource SubtleFill}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Padding" Value="12,2,4,2" />
+  </Style>
+
+  <Style Selector="TabStrip TabStripItem">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="Padding" Value="10,4" />
+  </Style>
+
   <Style Selector="DataGrid">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="GridLinesVisibility" Value="None" />

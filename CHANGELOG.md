@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-26
+
 ### Added
 - **Protocol decoders**: DNS/mDNS/LLMNR, MQTT 3.1.1/5, Modbus/TCP, JSON (including HTTP bodies) and a text/HTTP fallback. The decoded summary is shown in the Info column and the decoded fields at the top of the packet details.
 - **Custom protocols** from JSON files in the user's protocols folder. Supported: integer/float/bool/string/cstring/bytes fields, endianness, scale and unit, hex format, enum names, bit names, `expect` magic values, length fields and a summary template. Bad files are reported with the reason, and the app ships with a commented example. See `docs/CUSTOM_PROTOCOLS.md`.
@@ -53,7 +55,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Log files are written to the current directory (or a chosen path) instead of the install folder.
 - Malformed packets can no longer crash the capture thread.
 
-[Unreleased]: https://github.com/shaxboz1011/UdpTcpListener/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/shaxboz1011/UdpTcpListener/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/shaxboz1011/UdpTcpListener/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/shaxboz1011/UdpTcpListener/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/shaxboz1011/UdpTcpListener/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/shaxboz1011/UdpTcpListener/releases/tag/v0.1.0

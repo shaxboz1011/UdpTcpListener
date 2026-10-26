@@ -12,4 +12,6 @@ public interface IFileDialogs
     Task OpenUrlAsync(string url);
     Task CopyTextAsync(string text);
     void ShowStream(StreamViewModel stream);
+    void ShowSender(SendViewModel sender);
+    Task OpenFolderAsync(string path);
 }

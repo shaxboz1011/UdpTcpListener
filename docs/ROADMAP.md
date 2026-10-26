@@ -19,11 +19,11 @@ Everything stays free and open source (MIT). Items are roughly in priority order
 - [x] Copy packet as hex / C array / Base64
 - [x] Ring-buffer capture to disk with file rotation (long-running captures)
 
-## 0.4: Tools for developers
-- [ ] **UDP/TCP sender**: craft and send packets, with repeat and rate options
-- [ ] **Replay** captured packets
-- [ ] Payload decoders: text, JSON, Modbus/TCP, MQTT, DNS
-- [ ] Custom protocol definitions (field offsets and types in a JSON file)
+## 0.4: Tools for developers ✅
+- [x] **UDP/TCP sender**: craft and send packets, with repeat and rate options
+- [x] **Replay** captured packets
+- [x] Payload decoders: text, JSON, Modbus/TCP, MQTT, DNS
+- [x] Custom protocol definitions (field offsets and types in a JSON file)
 
 ## 0.5: Monitoring
 - [ ] Triggers and alerts ("payload contains X", "traffic from IP Y"): desktop notification, sound, webhook, Telegram bot

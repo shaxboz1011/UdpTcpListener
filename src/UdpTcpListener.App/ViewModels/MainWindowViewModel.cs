@@ -10,6 +10,7 @@ using UdpTcpListener.App.Localization;
 using UdpTcpListener.App.Services;
 using UdpTcpListener.Core.Analysis;
 using UdpTcpListener.Core.Capture;
+using UdpTcpListener.Core.Decoding;
 using UdpTcpListener.Core.Export;
 using UdpTcpListener.Core.Formatting;
 using UdpTcpListener.Core.Packets;
@@ -70,6 +71,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         _settings = settings;
         Update.BeforeRestart = PrepareForRestart;
+        Converters.AppConverters.Decoders = Decoders.Registry;
         Setup = new SetupViewModel(url => Dialogs?.OpenUrlAsync(url) ?? Task.CompletedTask) { BeforeRestart = PrepareForRestart };
         Setup.DriverInstalledByUser += (_, _) => RefreshDevices();
 
@@ -109,6 +111,23 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     public SetupViewModel Setup { get; }
 
+    // ---------------------------------------------------------------- decoders, send & replay
+
+    public ProtocolService Decoders { get; } = new();
+
+    /// <summary>Kept between openings so the sender remembers what was typed.</summary>
+    private SendViewModel? _sender;
+
+    public string ProtocolsSummary => Decoders.CustomNames.Count == 0
+        ? L["ProtocolsNone"]
+        : L.Format("ProtocolsLoaded", Decoders.CustomNames.Count, string.Join(", ", Decoders.CustomNames));
+
+    public string ProtocolErrors => string.Join("\n", Decoders.Errors);
+
+    public bool HasProtocolErrors => Decoders.Errors.Count > 0;
+
+    public string ProtocolsFolder => Decoders.Directory;
+
     /// <summary>Packet-list columns the user hid; the view applies and updates them.</summary>
     public ICollection<string> HiddenColumns => _settings.HiddenColumns;
 
@@ -117,7 +136,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public ObservableCollection<ConversationRow> Conversations { get; } = [];
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(ShowConversationPacketsCommand), nameof(FollowConversationCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ShowConversationPacketsCommand), nameof(FollowConversationCommand), nameof(ReplayConversationCommand))]
     public partial ConversationRow? SelectedConversation { get; set; }
 
     [ObservableProperty]
@@ -292,7 +311,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelection))]
-    [NotifyCanExecuteChangedFor(nameof(FollowStreamCommand), nameof(FilterConversationCommand), nameof(CopyPacketCommand))]
+    [NotifyCanExecuteChangedFor(nameof(FollowStreamCommand), nameof(FilterConversationCommand), nameof(CopyPacketCommand), nameof(ResendPacketCommand))]
     public partial PacketRecord? SelectedPacket { get; set; }
 
     public bool HasSelection => SelectedPacket is not null;
@@ -314,6 +333,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        // Application protocols first: they are what the user usually wants to read.
+        foreach (var decoded in Decoders.Registry.Decode(value))
+            SelectedLayers.Add(ToPacketLayer(decoded));
         foreach (var layer in PacketDecoder.DescribeLayers(value))
             SelectedLayers.Add(layer);
         SelectedHexDump = HexDump.Format(value.RawData);
@@ -488,6 +510,71 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [RelayCommand]
     private void ClearConversationFilter() => ConversationFilter = null;
+
+    [RelayCommand]
+    private void OpenSender() => Dialogs?.ShowSender(Sender());
+
+    /// <summary>"Send again…": opens the sender pre-filled with the selected packet.</summary>
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private void ResendPacket()
+    {
+        var sender = Sender();
+        sender.PrefillFrom(SelectedPacket!);
+        Dialogs?.ShowSender(sender);
+    }
+
+    /// <summary>Replays the packets currently shown (search and conversation filters applied).</summary>
+    [RelayCommand]
+    private void ReplayVisible()
+    {
+        var sender = Sender();
+        sender.SetReplayPackets(VisiblePackets.ToList(), L["ReplaySourceVisible"]);
+        Dialogs?.ShowSender(sender);
+    }
+
+    [RelayCommand(CanExecute = nameof(HasConversationSelection))]
+    private void ReplayConversation()
+    {
+        var key = SelectedConversation!.Key;
+        var sender = Sender();
+        sender.SetReplayPackets(_all.Where(key.Matches).ToList(), $"{key.EndpointA} ⇄ {key.EndpointB}");
+        Dialogs?.ShowSender(sender);
+    }
+
+    private SendViewModel Sender() => _sender ??= new SendViewModel(Devices.ToList());
+
+    [RelayCommand]
+    private void ReloadProtocols()
+    {
+        Decoders.Reload();
+        Converters.AppConverters.Decoders = Decoders.Registry;
+        RebuildVisible(); // refresh the Info column
+        OnPropertyChanged(nameof(ProtocolsSummary));
+        OnPropertyChanged(nameof(ProtocolErrors));
+        OnPropertyChanged(nameof(HasProtocolErrors));
+        OnSelectedPacketChanged(SelectedPacket); // re-decode with the new definitions
+        StatusText = HasProtocolErrors ? L["ProtocolsReloadedWithErrors"] : L["ProtocolsReloaded"];
+    }
+
+    [RelayCommand]
+    private Task OpenProtocolsFolder() => Dialogs?.OpenFolderAsync(Decoders.Directory) ?? Task.CompletedTask;
+
+    /// <summary>Shows a decoded protocol in the details tree; nested fields are indented.</summary>
+    private static PacketLayer ToPacketLayer(DecodedLayer layer)
+    {
+        var fields = new List<PacketField>();
+        void Add(IEnumerable<DecodedField> items, int depth)
+        {
+            foreach (var field in items)
+            {
+                fields.Add(new PacketField(new string(' ', depth * 3) + (depth > 0 ? "› " : "") + field.Name, field.Value));
+                if (field.Children is { } children)
+                    Add(children, depth + 1);
+            }
+        }
+        Add(layer.Fields, 0);
+        return new PacketLayer($"{layer.Protocol}  ·  {layer.Summary}", fields);
+    }
 
     [RelayCommand(CanExecute = nameof(HasConversationSelection))]
     private void ShowConversationPackets()

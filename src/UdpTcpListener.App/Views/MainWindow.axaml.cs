@@ -168,4 +168,29 @@ public partial class MainWindow : Window, IFileDialogs
     }
 
     public void ShowStream(StreamViewModel stream) => new StreamWindow { DataContext = stream }.Show(this);
+
+    private SendWindow? _sendWindow;
+
+    /// <summary>One Send/Replay window at a time; reopening brings it to the front.</summary>
+    public void ShowSender(SendViewModel sender)
+    {
+        if (_sendWindow is null)
+        {
+            _sendWindow = new SendWindow { DataContext = sender };
+            _sendWindow.Closed += (_, _) => _sendWindow = null;
+            _sendWindow.Show(this);
+        }
+        else
+        {
+            _sendWindow.DataContext = sender;
+            _sendWindow.Activate();
+        }
+    }
+
+    public async Task OpenFolderAsync(string path)
+    {
+        Directory.CreateDirectory(path);
+        if (Launcher is { } launcher)
+            await launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(path));
+    }
 }

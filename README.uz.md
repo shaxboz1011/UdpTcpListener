@@ -25,6 +25,9 @@
 - **Oqimni kuzatish (Follow stream).** TCP yoki UDP ulanishda aslida nima yuborilganini qayta tiklaydi. TCP paketlari to'g'ri tartibga keltiriladi, qayta yuborilganlari olib tashlanadi. Natija matn yoki hex ko'rinishida chiqadi, har bir tomon o'z rangida.
 - **Nusxa olish** hex, C massiv, Base64 yoki matn ko'rinishida. Ustunlar bo'yicha saralash va ustunlarni tanlash ham bor.
 - **Eksport:** **pcapng** yoki **pcap** (Wireshark'da ochiladi), CSV, JSON yoki matnli log. `.pcapng` va `.pcap` fayllarni **ochish** ham mumkin.
+- **Protokol dekoderlari.** DNS, MQTT, Modbus/TCP, JSON va HTTP avtomatik dekod qilinadi. Natija "Ma'lumot" ustunida va tafsilotlar oynasida ko'rinadi.
+- **O'z protokollaringiz.** Binar protokolingizni kichik JSON faylda tasvirlang (maydon turlari, masshtab, o'lchov birligi, enum, bit flaglar, magic raqam), shunda u ichki protokollar kabi dekod qilinadi. Batafsil: [docs/CUSTOM_PROTOCOLS.md](docs/CUSTOM_PROTOCOLS.md).
+- **Yuborish va replay.** UDP/TCP payload tuzib (escape'li matn, hex yoki Base64) bir yoki bir necha marta yuborish mumkin, kerak bo'lsa javobni ham kutib. "Qayta yuborish" ushlangan paketni qayta jo'natadi. Replay esa paketlar to'plamini asl vaqt oraliqlari bilan (xohlasangiz tezlashtirib) qayta yuboradi yoki asl freymlarni tarmoq kartasiga inject qiladi.
 - **Capture paytida diskka yozish** — uzoq capture uchun. Fayllar hajm bo'yicha almashadi va faqat oxirgi N tasi saqlanadi, shuning uchun disk to'lib qolmaydi.
 - **Istalgan tarmoq turida ishlaydi:** Ethernet, Wi-Fi, loopback, VPN/tun, Linux `any`.
 - **Bitta tugma bilan sozlash.** Drayver o'rnatilmagan bo'lsa, ichki "Sozlash yordamchisi" uni o'zi o'rnatadi. Windows'da rasmiy Npcap o'rnatuvchisini yuklab olib imzosini tekshiradi, Linux'da libpcap'ni paket menejeri orqali o'rnatadi. Dasturni administrator sifatida qayta ishga tushirish ham mumkin.

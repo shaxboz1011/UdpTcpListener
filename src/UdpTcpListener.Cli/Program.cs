@@ -1,5 +1,6 @@
 using System.Reflection;
 using UdpTcpListener.Core.Capture;
+using UdpTcpListener.Core.Decoding;
 using UdpTcpListener.Core.Export;
 using UdpTcpListener.Core.Packets;
 
@@ -8,12 +9,14 @@ namespace UdpTcpListener.Cli;
 internal static class Program
 {
     private const string Usage = """
-        UdpTcpListener CLI - capture UDP/TCP packets from the command line.
+        UdpTcpListener CLI - capture, send and replay UDP/TCP packets.
 
         Usage:
-          udptcplistener [options]
+          udptcplistener [options]                 capture live (or read a file with -r)
+          udptcplistener send <host:port> [...]    send a payload (see: send --help)
+          udptcplistener replay <file> [...]       replay a capture (see: replay --help)
 
-        Options:
+        Capture options:
           -l, --list               List capture devices and exit
           -i, --interface <n>      Device index (from --list) or device name
           -p, --protocol <p>       udp | tcp | both (default: both)
@@ -26,14 +29,16 @@ internal static class Program
           -r, --read <file>        Read a .pcap/.pcapng file instead of capturing live
                                    (with -o this converts it; -p/--src/--dst/--port still filter)
           -c, --count <n>          Stop after n packets
+          -d, --decode             Also print decoded protocols (DNS, MQTT, Modbus, JSON, custom)
+              --protocols <dir>    Folder with custom protocol definitions (*.json)
+          -q, --quiet              Do not print packets to the console
+          -v, --version            Show version
+          -h, --help               Show this help
 
         Long captures (writes a series of files next to --output):
               --rotate-size <MB>   Start a new file after this many megabytes
               --rotate-minutes <n> Start a new file after this many minutes
               --rotate-files <n>   Keep only the newest n files (ring buffer)
-          -q, --quiet              Do not print packets to the console
-          -v, --version            Show version
-          -h, --help               Show this help
 
         Without --interface the tool asks interactively, like the original version.
         Capturing usually needs administrator/root rights (or CAP_NET_RAW on Linux).
@@ -41,6 +46,14 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        switch (args.FirstOrDefault())
+        {
+            case "send":
+                return Commands.Send(args[1..]);
+            case "replay":
+                return Commands.Replay(args[1..]);
+        }
+
         Options options;
         try
         {
@@ -153,7 +166,7 @@ internal static class Program
                 writer.Write(packet);
                 written++;
                 if (!options.Quiet)
-                    Console.WriteLine(TextPacketWriter.Format(packet));
+                    Print(packet, options);
 
                 if (options.Count is { } max && written >= max)
                     done.Set();
@@ -204,7 +217,7 @@ internal static class Program
 
             writer?.Write(packet);
             if (!options.Quiet && writer is null)
-                Console.WriteLine(TextPacketWriter.Format(packet));
+                Print(packet, options);
 
             if (++count == options.Count)
                 break;
@@ -238,6 +251,24 @@ internal static class Program
         description = $"{Path.Combine(rotation.Directory, rotation.BaseName)}_NNNNN_*{PacketWriter.Extension(rotation.Format)}" +
                       (rotation.MaxFiles > 0 ? $" (keeping the newest {rotation.MaxFiles})" : "");
         return new RotatingPacketWriter(rotation);
+    }
+
+    private static DecoderRegistry? _decoders;
+
+    private static void Print(PacketRecord packet, Options options)
+    {
+        Console.WriteLine(TextPacketWriter.Format(packet));
+        if (!options.Decode)
+            return;
+
+        _decoders ??= Commands.LoadDecoders(options.ProtocolsDirectory);
+        foreach (var layer in _decoders.Decode(packet))
+        {
+            Console.WriteLine($"  {layer.Protocol}: {layer.Summary}");
+            foreach (var line in Commands.FormatFields(layer.Fields, "    "))
+                Console.WriteLine(line);
+        }
+        Console.WriteLine();
     }
 
     private static void PrintDevices(IReadOnlyList<NetworkDevice> devices)
@@ -311,6 +342,8 @@ internal static class Program
         public bool ShowVersion { get; private init; }
         public bool ListDevices { get; private init; }
         public bool Quiet { get; private init; }
+        public bool Decode { get; private init; }
+        public string? ProtocolsDirectory { get; private init; }
         public string? Interface { get; private init; }
         public string? Output { get; private init; }
         public long? Count { get; private init; }
@@ -336,6 +369,8 @@ internal static class Program
                     "-v" or "--version" => o with { ShowVersion = true },
                     "-l" or "--list" => o with { ListDevices = true },
                     "-q" or "--quiet" => o with { Quiet = true },
+                    "-d" or "--decode" => o with { Decode = true },
+                    "--protocols" => o with { ProtocolsDirectory = Next() },
                     "-i" or "--interface" => o with { Interface = Next() },
                     "-o" or "--output" => o with { Output = Next() },
                     "-r" or "--read" => o with { ReadFile = Next() },

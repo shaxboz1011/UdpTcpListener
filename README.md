@@ -32,6 +32,9 @@
 - **Follow stream.** Rebuilds what a TCP or UDP conversation actually said. TCP is put back in order, with retransmissions removed. Shown as text or a hex dump, with each side in its own colour.
 - **Copy as** hex, C array, Base64 or text, plus column sorting and a column chooser.
 - **Export** to **pcapng** or **pcap** (open them in Wireshark), CSV, JSON or a plain-text log. You can also **open** `.pcapng` and `.pcap` files.
+- **Protocol decoders.** DNS, MQTT, Modbus/TCP, JSON and HTTP are decoded automatically, and the result appears in the Info column and the details pane.
+- **Your own protocols.** Describe a binary protocol in a small JSON file (field types, scaling, units, enums, bit flags, magic numbers) and it is decoded like a built-in one. See [docs/CUSTOM_PROTOCOLS.md](docs/CUSTOM_PROTOCOLS.md).
+- **Send and replay.** Craft a UDP/TCP payload (text with escapes, hex or Base64) and send it once or many times, optionally waiting for replies. "Send again" re-sends a captured packet, and Replay re-sends a set of packets with their original timing (sped up if you like) or injects the original frames onto a network card.
 - **Save to disk while capturing**, for long captures. Files rotate by size and only the newest N are kept, so disk use stays bounded.
 - **Works on any link layer:** Ethernet, Wi-Fi, loopback, VPN/tun and Linux `any`.
 - **One-click setup.** If the capture driver is missing, the built-in setup assistant installs it for you. On Windows it downloads the official Npcap installer and checks its signature; on Linux it installs libpcap with your package manager. It can also restart the app as administrator.
@@ -42,6 +45,10 @@
 ![Search and payload view — light theme](docs/screenshots/search-light.png)
 
 ![Follow stream](docs/screenshots/follow-stream.png)
+
+![Custom protocol decoded in the details pane](docs/screenshots/decoders.png)
+
+![Replay window](docs/screenshots/replay.png)
 
 ## Install
 
@@ -92,6 +99,11 @@ udptcplistener [options]
       --rotate-size <MB>   Long captures: start a new file after this many megabytes
       --rotate-minutes <n> ... or after this many minutes
       --rotate-files <n>   Keep only the newest n files (ring buffer)
+  -d, --decode             Also print decoded protocols (DNS, MQTT, Modbus, JSON, custom)
+
+udptcplistener send <host:port> [-p udp|tcp] [-t text | -x hex | -b base64 | -F file]
+                    [-c count] [-i interval-ms] [-w wait-for-reply-ms]
+udptcplistener replay <file> [--to host:port | --inject device] [--speed x | --interval ms | --fast] [--loops n]
 ```
 
 Examples:
@@ -102,6 +114,12 @@ udptcplistener -i eth0 -p udp --port 53 --rotate-size 100 --rotate-files 10 -o d
 
 # Convert a capture to CSV, keeping only traffic from one host
 udptcplistener -r capture.pcapng --src 192.168.1.10 -o host.csv
+
+# Send a Modbus/TCP request and print the reply
+udptcplistener send 192.168.1.50:502 -p tcp -x "00 01 00 00 00 06 01 03 00 00 00 02" -w 1000
+
+# Replay captured DNS queries against a test server, 10x faster
+udptcplistener replay dns.pcapng --port 53 --to 127.0.0.1:5353 --speed 10
 ```
 
 If you run it without `--interface`, it asks for the device and filters interactively, like the original tool.

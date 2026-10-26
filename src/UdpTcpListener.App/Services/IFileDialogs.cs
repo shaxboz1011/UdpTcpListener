@@ -14,4 +14,5 @@ public interface IFileDialogs
     void ShowStream(StreamViewModel stream);
     void ShowSender(SendViewModel sender);
     Task OpenFolderAsync(string path);
+    void ShowAlerts(AlertsViewModel alerts);
 }

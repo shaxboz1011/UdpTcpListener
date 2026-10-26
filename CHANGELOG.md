@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+- **Alerts**: rules with conditions on protocol, source/destination address or network (CIDR), port, payload text or bytes and the decoded summary, plus a threshold ("N packets within T seconds") and a cooldown. Actions: in-app notification (plus a desktop notification on Linux or a flashing taskbar button on Windows when the window is in the background), sound, webhook (JSON POST) and Telegram bot message. Rules are edited in the new Alerts window, which also has a Test button and an alert log; double-click a log entry to jump to its packet. They are stored in `alerts.json`.
+- **Process names**: a Process column in the packet list and the Conversations tab, also searchable, showing the local application that owns each packet's socket. It uses the system TCP/UDP tables on Windows and `/proc` on Linux.
+- **GeoIP / ASN**: country codes next to public addresses, with the country name and owning network in a tooltip and in the packet details. It uses the free, offline DB-IP Lite databases, downloaded or updated with one click from the setup assistant (new step 3).
+- CLI: `--alerts <file>`, `-P/--process`, `-g/--geo` and the `geoip update` / `geoip <ip>...` subcommand.
+- `docs/MONITORING.md`.
+
 ## [0.4.0] - 2026-10-26
 
 ### Added

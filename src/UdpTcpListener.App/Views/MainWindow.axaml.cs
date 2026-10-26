@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Notifications;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Platform.Storage;
@@ -10,7 +11,7 @@ using UdpTcpListener.Core.Packets;
 
 namespace UdpTcpListener.App.Views;
 
-public partial class MainWindow : Window, IFileDialogs
+public partial class MainWindow : Window, IFileDialogs, IAlertPresenter
 {
     private static readonly FilePickerFileType PcapNg = new("pcapng (Wireshark)") { Patterns = ["*.pcapng"] };
     private static readonly FilePickerFileType Pcap = new("pcap (Wireshark, tcpdump)") { Patterns = ["*.pcap"] };
@@ -21,6 +22,7 @@ public partial class MainWindow : Window, IFileDialogs
 
     private MainWindowViewModel? _viewModel;
     private bool _scrollPending;
+    private WindowNotificationManager? _notifications;
 
     public MainWindow()
     {
@@ -41,6 +43,54 @@ public partial class MainWindow : Window, IFileDialogs
         ColumnsButton.Click += (_, _) => ShowColumnChooser();
     }
 
+    protected override void OnApplyTemplate(Avalonia.Controls.Primitives.TemplateAppliedEventArgs e)
+    {
+        base.OnApplyTemplate(e);
+        _notifications ??= new WindowNotificationManager(this) { Position = NotificationPosition.BottomRight, MaxItems = 4 };
+    }
+
+    public void ShowAlert(string title, string message, bool isError)
+    {
+        _notifications?.Show(new Notification(title, message, isError ? NotificationType.Error : NotificationType.Warning,
+            TimeSpan.FromSeconds(isError ? 10 : 6), onClick: () => OpenAlertLog()));
+        if (IsActive)
+            return;
+        // In the background: tell the desktop too.
+        if (!isError && !AlertEffects.ShowDesktopNotification(title, message))
+            AlertEffects.FlashTaskbar(TryGetPlatformHandle()?.Handle ?? IntPtr.Zero);
+    }
+
+    private AlertsWindow? _alertsWindow;
+
+    public void ShowAlerts(AlertsViewModel alerts)
+    {
+        if (_alertsWindow is null)
+        {
+            _alertsWindow = new AlertsWindow { DataContext = alerts };
+            _alertsWindow.GoToPacket += (_, number) =>
+            {
+                _viewModel?.GoToPacket(number);
+                Activate();
+            };
+            _alertsWindow.Closed += (_, _) => _alertsWindow = null;
+            if (alerts.HasUnread)
+                _alertsWindow.ShowLog();
+            _alertsWindow.Show(this);
+        }
+        else
+        {
+            _alertsWindow.Activate();
+        }
+    }
+
+    private void OpenAlertLog()
+    {
+        if (_viewModel is null)
+            return;
+        ShowAlerts(_viewModel.Alerts);
+        _alertsWindow?.ShowLog();
+    }
+
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
@@ -48,18 +98,25 @@ public partial class MainWindow : Window, IFileDialogs
         if (_viewModel is not null)
         {
             _viewModel.PacketsAppended -= OnPacketsAppended;
+            _viewModel.PacketSelectedByCode -= OnPacketSelectedByCode;
             _viewModel.Dialogs = null;
+            _viewModel.Alerts.Presenter = null;
         }
 
         _viewModel = DataContext as MainWindowViewModel;
         if (_viewModel is not null)
         {
             _viewModel.PacketsAppended += OnPacketsAppended;
+            _viewModel.PacketSelectedByCode += OnPacketSelectedByCode;
             _viewModel.Dialogs = this;
+            _viewModel.Alerts.Presenter = this;
             foreach (var column in PacketGrid.Columns)
                 column.IsVisible = !_viewModel.HiddenColumns.Contains(ColumnKey(column));
         }
     }
+
+    private void OnPacketSelectedByCode(object? sender, PacketRecord packet) =>
+        Dispatcher.UIThread.Post(() => PacketGrid.ScrollIntoView(packet, null), DispatcherPriority.Background);
 
     private void OnPacketsAppended(object? sender, PacketRecord last)
     {

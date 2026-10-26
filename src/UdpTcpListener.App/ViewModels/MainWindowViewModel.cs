@@ -14,6 +14,7 @@ using UdpTcpListener.Core.Decoding;
 using UdpTcpListener.Core.Export;
 using UdpTcpListener.Core.Formatting;
 using UdpTcpListener.Core.Packets;
+using UdpTcpListener.Core.Processes;
 using UdpTcpListener.Core.Statistics;
 
 namespace UdpTcpListener.App.ViewModels;
@@ -62,6 +63,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private readonly Dictionary<ConversationKey, ConversationRow> _conversationRows = [];
     private readonly Lock _recorderLock = new();
     private RotatingPacketWriter? _recorder;
+    private readonly ProcessMapper _processes = new();
+    private readonly Dictionary<ConversationKey, string> _conversationProcesses = [];
 
     public MainWindowViewModel() : this(new AppSettings())
     {
@@ -74,6 +77,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         Converters.AppConverters.Decoders = Decoders.Registry;
         Setup = new SetupViewModel(url => Dialogs?.OpenUrlAsync(url) ?? Task.CompletedTask) { BeforeRestart = PrepareForRestart };
         Setup.DriverInstalledByUser += (_, _) => RefreshDevices();
+        Alerts = new AlertsViewModel(p => Decoders.Registry.Summarize(p)) { IsEnabled = settings.AlertsEnabled };
+        Geo.Loaded += (_, _) =>
+        {
+            RefreshGeo();
+            OnSelectedPacketChanged(SelectedPacket);
+        };
 
         SelectedProtocol = Protocols.First(p => p.Value == settings.Protocol);
         SelectedTheme = Themes.First(t => t.Value == settings.Theme);
@@ -91,25 +100,99 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         _engine.PacketCaptured += (_, packet) =>
         {
+            // Capture thread: the owning process must be looked up now, while its socket still exists.
+            if (_processes.Lookup(packet) is { } process)
+                packet = packet with { ProcessId = process.Id, ProcessName = process.Name };
             _incoming.Enqueue(packet);
             RecordPacket(packet);
+            Alerts.Evaluate(packet);
         };
 
         _uiTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(100), DispatcherPriority.Background, (_, _) => DrainIncoming());
         _rateTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => UpdateRates());
 
-        Localizer.Instance.LanguageChanged += (_, _) => RefreshStatus();
+        Localizer.Instance.LanguageChanged += (_, _) =>
+        {
+            RefreshStatus();
+            Alerts.RefreshLanguage();
+        };
 
         RefreshDevices();
         if (settings.LastDevice is { } last)
             SelectedDevice = Devices.FirstOrDefault(d => d.Name == last) ?? SelectedDevice;
     }
 
-    public IFileDialogs? Dialogs { get; set; }
+    public IFileDialogs? Dialogs
+    {
+        get;
+        set
+        {
+            field = value;
+            Alerts.Dialogs = Geo.Dialogs = value;
+        }
+    }
 
     public UpdateViewModel Update { get; } = new();
 
     public SetupViewModel Setup { get; }
+
+    // ---------------------------------------------------------------- monitoring
+
+    public AlertsViewModel Alerts { get; }
+
+    public GeoService Geo { get; } = new();
+
+    [RelayCommand]
+    private void OpenAlerts() => Dialogs?.ShowAlerts(Alerts);
+
+    /// <summary>Selects a packet by number (from the alert log), clearing filters that hide it.</summary>
+    public void GoToPacket(long number)
+    {
+        var packet = _all.FirstOrDefault(p => p.Number == number);
+        if (packet is null)
+        {
+            StatusText = L["PacketGone"];
+            return;
+        }
+        SelectedTabIndex = 0;
+        AutoScroll = false; // otherwise new packets would scroll it away again
+        if (!VisiblePackets.Contains(packet))
+        {
+            SearchText = null;
+            ConversationFilter = null;
+        }
+        SelectedPacket = packet;
+        PacketSelectedByCode?.Invoke(this, packet);
+    }
+
+    /// <summary>Raised when the view model selects a packet, so the view can scroll to it.</summary>
+    public event EventHandler<PacketRecord>? PacketSelectedByCode;
+
+    /// <summary>Process, country and network of the selected packet, shown above the protocol layers.</summary>
+    private PacketLayer? MonitoringLayer(PacketRecord packet)
+    {
+        var fields = new List<PacketField>();
+        if (packet.Process is { } process)
+            fields.Add(new PacketField(L["FieldProcess"], process));
+        if (Geo.Describe(packet.SourceAddress) is { } src)
+            fields.Add(new PacketField(L["FieldSourceGeo"], src));
+        if (Geo.Describe(packet.DestinationAddress) is { } dst)
+            fields.Add(new PacketField(L["FieldDestinationGeo"], dst));
+        if (!Geo.IsInstalled && (Core.Geo.GeoDatabase.IsPublic(packet.SourceAddress) || Core.Geo.GeoDatabase.IsPublic(packet.DestinationAddress)))
+            fields.Add(new PacketField("GeoIP", L["GeoNotInstalledShort"]));
+        return fields.Count == 0 ? null : new PacketLayer(L["LayerMonitoring"], fields);
+    }
+
+    /// <summary>Re-creates the rows so the country codes appear after the database is (re)loaded.</summary>
+    private void RefreshGeo()
+    {
+        RebuildVisible();
+        var selected = SelectedConversation?.Key;
+        _conversationRows.Clear();
+        Conversations.Clear();
+        RefreshConversations();
+        SelectedConversation = selected is { } key && _conversationRows.TryGetValue(key, out var row) ? row : null;
+    }
 
     // ---------------------------------------------------------------- decoders, send & replay
 
@@ -333,6 +416,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        if (MonitoringLayer(value) is { } monitoring)
+            SelectedLayers.Add(monitoring);
         // Application protocols first: they are what the user usually wants to read.
         foreach (var decoded in Decoders.Registry.Decode(value))
             SelectedLayers.Add(ToPacketLayer(decoded));
@@ -429,6 +514,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _stats.Reset();
         _conversations.Clear();
         _conversationRows.Clear();
+        _conversationProcesses.Clear();
         Conversations.Clear();
         ConversationCount = 0;
         ConversationFilter = null;
@@ -794,6 +880,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _all.Add(packet);
         _stats.Add(packet);
         _conversations.Add(packet);
+        if (packet.Process is { } process)
+            _conversationProcesses[ConversationKey.From(packet)] = process;
         TotalCount = _all.Count;
     }
 
@@ -850,6 +938,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
                 Conversations.Add(row);
             }
             row.Update(summary);
+            if (row.Process is null && _conversationProcesses.TryGetValue(summary.Key, out var process))
+                row.Process = process;
         }
         ConversationCount = _conversations.Count;
     }
@@ -899,6 +989,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
                || packet.Destination.Contains(term, StringComparison.OrdinalIgnoreCase)
                || packet.ProtocolName.Equals(term, StringComparison.OrdinalIgnoreCase)
                || (packet.TcpFlags?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+               || (packet.ProcessName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                || (term.Length >= 3 && HexDump.ToAscii(packet.Payload).Contains(term, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -935,6 +1026,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _settings.RecordFolder = RecordFolder;
         _settings.RecordFileSizeMb = (int)Math.Max(1, RecordFileSizeMb);
         _settings.RecordMaxFiles = (int)Math.Max(0, RecordMaxFiles);
+        _settings.AlertsEnabled = Alerts.IsEnabled;
         SettingsService.Save(_settings);
     }
 

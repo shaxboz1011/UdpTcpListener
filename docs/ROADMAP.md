@@ -25,10 +25,10 @@ Everything stays free and open source (MIT). Items are roughly in priority order
 - [x] Payload decoders: text, JSON, Modbus/TCP, MQTT, DNS
 - [x] Custom protocol definitions (field offsets and types in a JSON file)
 
-## 0.5: Monitoring
-- [ ] Triggers and alerts ("payload contains X", "traffic from IP Y"): desktop notification, sound, webhook, Telegram bot
-- [ ] Process mapping: which application owns a port
-- [ ] GeoIP / ASN lookup for public addresses
+## 0.5: Monitoring ✅
+- [x] Triggers and alerts ("payload contains X", "traffic from IP Y"): desktop notification, sound, webhook, Telegram bot
+- [x] Process mapping: which application owns a port
+- [x] GeoIP / ASN lookup for public addresses
 
 ## 1.0: Remote and extensible
 - [ ] Headless capture agent (CLI `serve` mode) with a secure WebSocket stream to the desktop app

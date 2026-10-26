@@ -23,6 +23,14 @@ public static class AppConverters
     public static readonly IValueConverter PacketInfo =
         new FuncValueConverter<PacketRecord, string>(p => p is null ? "" : Decoders.Summarize(p) ?? p.Info);
 
+    /// <summary>Country code shown next to a public address in the packet list (empty without a GeoIP database).</summary>
+    public static readonly IValueConverter CountryCode =
+        new FuncValueConverter<System.Net.IPAddress, string?>(a => a is null ? null : Services.GeoService.Current?.Database.Lookup(a)?.CountryCode);
+
+    /// <summary>Tooltip for <see cref="CountryCode"/>: country name and network.</summary>
+    public static readonly IValueConverter GeoDescription =
+        new FuncValueConverter<System.Net.IPAddress, string?>(a => a is null ? null : Services.GeoService.Current?.Describe(a));
+
     public static readonly IValueConverter Bytes =
         new FuncValueConverter<long, string>(b => ByteSize.Format(b));
 

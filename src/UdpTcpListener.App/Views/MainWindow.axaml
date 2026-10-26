@@ -164,6 +164,37 @@
                     IsVisible="{Binding Setup.CanRestartElevated}" />
           </Grid>
 
+          <!-- Step 3 (optional): GeoIP / ASN database -->
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <Border Classes="step" Classes.ok="{Binding Geo.IsInstalled}">
+              <Panel>
+                <TextBlock Text="✓" IsVisible="{Binding Geo.IsInstalled}" />
+                <TextBlock Text="3" IsVisible="{Binding !Geo.IsInstalled}" />
+              </Panel>
+            </Border>
+            <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+              <TextBlock FontWeight="SemiBold" Text="{l:T GeoTitle}" />
+              <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" Text="{l:T GeoHint}" />
+              <TextBlock FontSize="12" TextWrapping="Wrap" Text="{Binding Geo.Status}" />
+              <SelectableTextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" Text="{Binding Geo.Error}"
+                                   IsVisible="{Binding Geo.Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+              <StackPanel Orientation="Horizontal" Spacing="4">
+                <TextBlock Classes="muted" FontSize="11" Text="{Binding Geo.Attribution}" VerticalAlignment="Center" />
+                <Button Classes="link" FontSize="11" Padding="4,0" Content="{l:T ProtocolsOpenFolder}" Command="{Binding Geo.OpenFolderCommand}" />
+              </StackPanel>
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="12,0,0,0">
+              <ProgressBar IsIndeterminate="True" Width="80" IsVisible="{Binding Geo.IsBusy}" />
+              <Button Classes="link" Content="{l:T SetupWebsite}" Command="{Binding Geo.OpenWebsiteCommand}" />
+              <Button Classes="tool" Classes.primary="{Binding !Geo.IsInstalled}" Command="{Binding Geo.DownloadCommand}">
+                <Panel>
+                  <TextBlock Text="{l:T GeoDownload}" IsVisible="{Binding !Geo.IsInstalled}" />
+                  <TextBlock Text="{l:T GeoUpdate}" IsVisible="{Binding Geo.IsInstalled}" />
+                </Panel>
+              </Button>
+            </StackPanel>
+          </Grid>
+
           <!-- Progress, result, restart -->
           <StackPanel Spacing="6" IsVisible="{Binding Setup.IsBusy}">
             <ProgressBar IsIndeterminate="{Binding Setup.IsProgressIndeterminate}" Value="{Binding Setup.Progress}" Maximum="100" Height="6" />
@@ -287,6 +318,12 @@
               </Flyout>
             </Button.Flyout>
           </Button>
+          <Button Classes="tool" Command="{Binding OpenAlertsCommand}" ToolTip.Tip="{l:T AlertsTitle}">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="{DynamicResource WarnBrush}" IsVisible="{Binding Alerts.HasUnread}" />
+              <TextBlock Text="{Binding Alerts.ButtonText}" />
+            </StackPanel>
+          </Button>
           <Button Classes="tool" Content="{l:T SendOpen}" Command="{Binding OpenSenderCommand}" ToolTip.Tip="{l:T SendTitle}" />
           <Button Classes="tool" Content="{l:T Clear}" Command="{Binding ClearCommand}" ToolTip.Tip="Ctrl+L" />
           <Button Classes="tool" Content="{l:T Open}" Command="{Binding OpenCommand}" ToolTip.Tip="Ctrl+O" />
@@ -378,9 +415,9 @@
                   </ContextMenu>
                 </DataGrid.ContextMenu>
                 <DataGrid.Columns>
-                  <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="No" Header="{l:T ColNo}" Binding="{Binding Number}" Width="70" CellStyleClasses="mono" />
+                  <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="No" Header="{l:T ColNo}" Binding="{Binding Number}" Width="64" CellStyleClasses="mono" />
                   <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="Time" Header="{l:T ColTime}" Binding="{Binding Timestamp, StringFormat='{}{0:HH:mm:ss.ffffff}'}" Width="140" CellStyleClasses="mono" />
-                  <DataGridTemplateColumn x:DataType="pk:PacketRecord" Tag="Protocol" Header="{l:T ColProtocol}" Width="105" SortMemberPath="ProtocolName">
+                  <DataGridTemplateColumn x:DataType="pk:PacketRecord" Tag="Protocol" Header="{l:T ColProtocol}" Width="100" SortMemberPath="ProtocolName">
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate x:DataType="pk:PacketRecord">
                         <Border Classes="pill" Background="{Binding Protocol, Converter={x:Static conv:AppConverters.ProtocolBrush}}" Margin="8,0">
@@ -389,9 +426,30 @@
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
-                  <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="Source" Header="{l:T ColSource}" Binding="{Binding Source}" Width="200" CellStyleClasses="mono" />
-                  <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="Destination" Header="{l:T ColDestination}" Binding="{Binding Destination}" Width="200" CellStyleClasses="mono" />
-                  <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="Length" Header="{l:T ColLength}" Binding="{Binding Length}" Width="90" CellStyleClasses="mono" />
+                  <DataGridTemplateColumn x:DataType="pk:PacketRecord" Tag="Source" Header="{l:T ColSource}" Width="195" SortMemberPath="Source">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate x:DataType="pk:PacketRecord">
+                        <Grid ColumnDefinitions="*,Auto" Margin="12,0,6,0" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Source}" FontFamily="{StaticResource MonoFont}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Grid.Column="1" Classes="country" Text="{Binding SourceAddress, Converter={x:Static conv:AppConverters.CountryCode}}"
+                                     ToolTip.Tip="{Binding SourceAddress, Converter={x:Static conv:AppConverters.GeoDescription}}" />
+                        </Grid>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn x:DataType="pk:PacketRecord" Tag="Destination" Header="{l:T ColDestination}" Width="195" SortMemberPath="Destination">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate x:DataType="pk:PacketRecord">
+                        <Grid ColumnDefinitions="*,Auto" Margin="12,0,6,0" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Destination}" FontFamily="{StaticResource MonoFont}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Grid.Column="1" Classes="country" Text="{Binding DestinationAddress, Converter={x:Static conv:AppConverters.CountryCode}}"
+                                     ToolTip.Tip="{Binding DestinationAddress, Converter={x:Static conv:AppConverters.GeoDescription}}" />
+                        </Grid>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="Length" Header="{l:T ColLength}" Binding="{Binding Length}" Width="75" CellStyleClasses="mono" />
+                  <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="Process" Header="{l:T ColProcess}" Binding="{Binding Process}" Width="130" />
                   <DataGridTextColumn x:DataType="pk:PacketRecord" Tag="Info" Header="{l:T ColInfo}" Binding="{Binding Converter={x:Static conv:AppConverters.PacketInfo}}" SortMemberPath="Info" Width="*" />
                 </DataGrid.Columns>
               </DataGrid>
@@ -432,14 +490,35 @@
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
-                  <DataGridTextColumn x:DataType="vm:ConversationRow" Header="{l:T ColEndpointA}" Binding="{Binding EndpointA}" Width="200" CellStyleClasses="mono" />
-                  <DataGridTextColumn x:DataType="vm:ConversationRow" Header="{l:T ColEndpointB}" Binding="{Binding EndpointB}" Width="200" CellStyleClasses="mono" />
+                  <DataGridTemplateColumn x:DataType="vm:ConversationRow" Header="{l:T ColEndpointA}" Width="195" SortMemberPath="EndpointA">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate x:DataType="vm:ConversationRow">
+                        <Grid ColumnDefinitions="*,Auto" Margin="12,0,6,0" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding EndpointA}" FontFamily="{StaticResource MonoFont}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Grid.Column="1" Classes="country" Text="{Binding AddressA, Converter={x:Static conv:AppConverters.CountryCode}}"
+                                     ToolTip.Tip="{Binding AddressA, Converter={x:Static conv:AppConverters.GeoDescription}}" />
+                        </Grid>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn x:DataType="vm:ConversationRow" Header="{l:T ColEndpointB}" Width="195" SortMemberPath="EndpointB">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate x:DataType="vm:ConversationRow">
+                        <Grid ColumnDefinitions="*,Auto" Margin="12,0,6,0" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding EndpointB}" FontFamily="{StaticResource MonoFont}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Grid.Column="1" Classes="country" Text="{Binding AddressB, Converter={x:Static conv:AppConverters.CountryCode}}"
+                                     ToolTip.Tip="{Binding AddressB, Converter={x:Static conv:AppConverters.GeoDescription}}" />
+                        </Grid>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTextColumn x:DataType="vm:ConversationRow" Header="{l:T ColProcess}" Binding="{Binding Process}" Width="150" />
                   <DataGridTextColumn x:DataType="vm:ConversationRow" Header="{l:T ColPackets}" Binding="{Binding Packets}" Width="90" CellStyleClasses="mono" />
                   <DataGridTextColumn x:DataType="vm:ConversationRow" Header="{l:T ColBytes}" Binding="{Binding Bytes, Converter={x:Static conv:AppConverters.Bytes}}" SortMemberPath="Bytes" Width="100" CellStyleClasses="mono" />
                   <DataGridTextColumn x:DataType="vm:ConversationRow" Header="A → B" Binding="{Binding BytesAToB, Converter={x:Static conv:AppConverters.Bytes}}" SortMemberPath="BytesAToB" Width="100" CellStyleClasses="mono" />
                   <DataGridTextColumn x:DataType="vm:ConversationRow" Header="B → A" Binding="{Binding BytesBToA, Converter={x:Static conv:AppConverters.Bytes}}" SortMemberPath="BytesBToA" Width="100" CellStyleClasses="mono" />
                   <DataGridTextColumn x:DataType="vm:ConversationRow" Header="{l:T ColStart}" Binding="{Binding Start, StringFormat='{}{0:HH:mm:ss.fff}'}" Width="120" CellStyleClasses="mono" />
-                  <DataGridTextColumn x:DataType="vm:ConversationRow" Header="{l:T ColDuration}" Binding="{Binding DurationSeconds, StringFormat='{}{0:0.000} s'}" Width="*" CellStyleClasses="mono" />
+                  <DataGridTextColumn x:DataType="vm:ConversationRow" Header="{l:T ColDuration}" Binding="{Binding DurationSeconds, StringFormat='{}{0:0.000} s'}" Width="100" CellStyleClasses="mono" />
                 </DataGrid.Columns>
               </DataGrid>
               <StackPanel IsVisible="{Binding IsEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">

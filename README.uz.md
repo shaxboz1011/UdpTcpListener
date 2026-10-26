@@ -28,12 +28,17 @@
 - **Protokol dekoderlari.** DNS, MQTT, Modbus/TCP, JSON va HTTP avtomatik dekod qilinadi. Natija "Ma'lumot" ustunida va tafsilotlar oynasida ko'rinadi.
 - **O'z protokollaringiz.** Binar protokolingizni kichik JSON faylda tasvirlang (maydon turlari, masshtab, o'lchov birligi, enum, bit flaglar, magic raqam), shunda u ichki protokollar kabi dekod qilinadi. Batafsil: [docs/CUSTOM_PROTOCOLS.md](docs/CUSTOM_PROTOCOLS.md).
 - **Yuborish va replay.** UDP/TCP payload tuzib (escape'li matn, hex yoki Base64) bir yoki bir necha marta yuborish mumkin, kerak bo'lsa javobni ham kutib. "Qayta yuborish" ushlangan paketni qayta jo'natadi. Replay esa paketlar to'plamini asl vaqt oraliqlari bilan (xohlasangiz tezlashtirib) qayta yuboradi yoki asl freymlarni tarmoq kartasiga inject qiladi.
+- **Ogohlantirishlar.** "Payload'da X bor", "Y tarmog'idan trafik keldi" yoki "T soniyada N tadan ko'p paket" kabi qoidalar ishga tushganda dastur ichida/ish stolida bildirishnoma, ovoz, webhook yoki Telegram xabari yuboriladi. CLI ham xuddi shu qoidalarni `--alerts` bilan ishlatadi. Batafsil: [docs/MONITORING.md](docs/MONITORING.md).
+- **Jarayon (dastur) nomi.** Har bir paketni kompyuteringizdagi qaysi dastur yuborgani yoki qabul qilgani ko'rinadi (Windows va Linux).
+- **GeoIP / ASN.** Ommaviy IP manzillar yonida davlat kodi, tafsilotlarda esa ular tegishli tarmoq/tashkilot. Bepul, oflayn DB-IP Lite bazasi bitta tugma bilan yuklab olinadi.
 - **Capture paytida diskka yozish** — uzoq capture uchun. Fayllar hajm bo'yicha almashadi va faqat oxirgi N tasi saqlanadi, shuning uchun disk to'lib qolmaydi.
 - **Istalgan tarmoq turida ishlaydi:** Ethernet, Wi-Fi, loopback, VPN/tun, Linux `any`.
 - **Bitta tugma bilan sozlash.** Drayver o'rnatilmagan bo'lsa, ichki "Sozlash yordamchisi" uni o'zi o'rnatadi. Windows'da rasmiy Npcap o'rnatuvchisini yuklab olib imzosini tekshiradi, Linux'da libpcap'ni paket menejeri orqali o'rnatadi. Dasturni administrator sifatida qayta ishga tushirish ham mumkin.
 - **Yorug'/qorong'i mavzu** va **3 til:** O'zbekcha, Русский, English.
 - **O'zini o'zi yangilaydi.** O'rnatilgan dastur GitHub Releases'ni tekshiradi, faqat o'zgargan qismini yuklab oladi va bitta tugma bilan yangi versiyada qayta ishga tushadi.
 - **CLI** server va skriptlar uchun: `udptcplistener -i eth0 -p udp --port 53 -o dns.pcap`.
+
+![Ogohlantirishlar, jarayon nomlari va davlatlar](docs/screenshots/monitoring.png)
 
 ## O'rnatish
 
@@ -89,6 +94,8 @@ Har qanday yordam, jumladan tarjimalar ham, mamnuniyat bilan qabul qilinadi. [CO
 ## Huquqiy eslatma
 
 Faqat o'zingizga tegishli yoki kuzatishga ruxsatingiz bor tarmoqlarda trafik ushlang.
+
+IP geolokatsiya ma'lumotlari: [DB-IP](https://db-ip.com), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) litsenziyasi ostida. Baza faqat siz so'raganingizda yuklab olinadi va repozitoriyga kirmaydi.
 
 ## Litsenziya
 

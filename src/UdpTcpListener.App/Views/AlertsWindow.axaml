@@ -1,0 +1,211 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:UdpTcpListener.App.ViewModels"
+        xmlns:l="using:UdpTcpListener.App.Localization"
+        x:Class="UdpTcpListener.App.Views.AlertsWindow"
+        x:DataType="vm:AlertsViewModel"
+        Icon="/Assets/icon.ico"
+        Title="{l:T AlertsTitle}"
+        Width="1000" Height="780" MinWidth="760" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource AppBackground}">
+
+  <DockPanel Margin="16">
+    <!-- Header: master switch and where the rules live -->
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+      <StackPanel Spacing="2">
+        <TextBlock Text="{l:T AlertsTitle}" FontSize="17" FontWeight="SemiBold" />
+        <TextBlock Text="{l:T AlertsSubtitle}" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+      </StackPanel>
+      <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsEnabled}" OnContent="{l:T AlertsOn}" OffContent="{l:T AlertsOff}"
+                    VerticalAlignment="Center" Margin="12,0,0,0" />
+    </Grid>
+
+    <!-- Bottom: status, test, save -->
+    <Border DockPanel.Dock="Bottom" Classes="card" Margin="0,12,0,0" Padding="14,10">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel VerticalAlignment="Center" Spacing="2">
+          <SelectableTextBlock Text="{Binding Status}" FontSize="12" TextWrapping="Wrap" Classes="muted" IsVisible="{Binding !StatusIsError}" />
+          <SelectableTextBlock Text="{Binding Status}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" IsVisible="{Binding StatusIsError}" />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding FilePath}" FontFamily="{StaticResource MonoFont}" FontSize="11" Classes="muted" VerticalAlignment="Center"
+                       TextTrimming="LeadingCharacterEllipsis" ToolTip.Tip="{Binding FilePath}" />
+            <Button Grid.Column="1" Classes="link" Content="{l:T ProtocolsOpenFolder}" FontSize="11" Padding="6,0" Command="{Binding OpenFolderCommand}" />
+          </Grid>
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0" VerticalAlignment="Center">
+          <Button Classes="tool" Content="{l:T AlertTest}" Command="{Binding TestRuleCommand}" ToolTip.Tip="{l:T AlertTestHint}" />
+          <Button Classes="primary" Content="{l:T AlertSave}" Command="{Binding SaveCommand}" MinWidth="120" HorizontalContentAlignment="Center"
+                  Classes.danger="{Binding HasChanges}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <TabControl x:Name="Tabs">
+      <!-- ============================== Rules ============================== -->
+      <TabItem Header="{l:T AlertRulesTab}">
+        <Grid ColumnDefinitions="300,12,*" Margin="0,12,0,0">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+              <Button Classes="primary" Content="{l:T AlertAdd}" Command="{Binding AddRuleCommand}" />
+              <Button Classes="tool" Content="{l:T AlertRemove}" Command="{Binding RemoveRuleCommand}" />
+            </StackPanel>
+            <Border Classes="card" Padding="4">
+              <Panel>
+                <ListBox ItemsSource="{Binding Rules}" SelectedItem="{Binding SelectedRule}" Background="Transparent">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:AlertRuleItem">
+                      <Grid ColumnDefinitions="Auto,*" Margin="0,2">
+                        <CheckBox IsChecked="{Binding Enabled}" VerticalAlignment="Top" MinWidth="0" Margin="0,0,6,0" />
+                        <StackPanel Grid.Column="1" Spacing="2">
+                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding Summary}" Classes="muted" FontSize="11.5" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding Channels}" FontSize="11" Foreground="{DynamicResource AccentAltBrush}" />
+                          <TextBlock Text="⚠" Foreground="{DynamicResource DangerBrush}" IsVisible="{Binding HasError}" />
+                        </StackPanel>
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock Text="{l:T AlertNoRules}" Classes="muted" TextWrapping="Wrap" TextAlignment="Center" Margin="16"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           IsVisible="{Binding !HasRules}" />
+              </Panel>
+            </Border>
+          </DockPanel>
+
+          <!-- Editor for the selected rule -->
+          <Border Grid.Column="2" Classes="card" Padding="0">
+            <Panel>
+              <TextBlock Text="{l:T AlertSelectRule}" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center"
+                         IsVisible="{Binding !HasSelection}" />
+              <ScrollViewer IsVisible="{Binding HasSelection}" Padding="16,12">
+                <StackPanel Spacing="14" DataContext="{Binding SelectedRule}" x:DataType="vm:AlertRuleItem">
+                  <Border Classes="banner error" IsVisible="{Binding HasError}">
+                    <SelectableTextBlock Text="{Binding Error}" TextWrapping="Wrap" />
+                  </Border>
+
+                  <StackPanel Spacing="4">
+                    <TextBlock Classes="caption" Text="{l:T AlertName}" />
+                    <TextBox Text="{Binding Name}" />
+                  </StackPanel>
+
+                  <TextBlock Classes="section" Text="{l:T AlertConditions}" Margin="0,4,0,-6" />
+                  <TextBlock Text="{l:T AlertConditionsHint}" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+                  <WrapPanel ItemSpacing="12" LineSpacing="8">
+                    <StackPanel>
+                      <TextBlock Classes="caption" Text="{l:T Protocol}" />
+                      <ComboBox ItemsSource="{x:Static vm:AlertRuleItem.ProtocolChoices}" SelectedItem="{Binding Protocol}" Width="100" />
+                    </StackPanel>
+                    <StackPanel>
+                      <TextBlock Classes="caption" Text="{l:T SourceIp}" />
+                      <TextBox Text="{Binding Source}" Width="170" PlaceholderText="10.0.0.0/8" />
+                    </StackPanel>
+                    <StackPanel>
+                      <TextBlock Classes="caption" Text="{l:T DestinationIp}" />
+                      <TextBox Text="{Binding Destination}" Width="170" PlaceholderText="{l:T Any}" />
+                    </StackPanel>
+                    <StackPanel>
+                      <TextBlock Classes="caption" Text="{l:T Port}" />
+                      <TextBox Text="{Binding Port}" Width="90" PlaceholderText="{l:T Any}" />
+                    </StackPanel>
+                  </WrapPanel>
+                  <Grid ColumnDefinitions="*,12,*">
+                    <StackPanel Spacing="4">
+                      <TextBlock Classes="caption" Text="{l:T AlertPayloadText}" />
+                      <TextBox Text="{Binding PayloadText}" PlaceholderText="password" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Spacing="4">
+                      <TextBlock Classes="caption" Text="{l:T AlertPayloadHex}" />
+                      <TextBox Text="{Binding PayloadHex}" PlaceholderText="de ad be ef" FontFamily="{StaticResource MonoFont}" />
+                    </StackPanel>
+                  </Grid>
+                  <StackPanel Spacing="4">
+                    <TextBlock Classes="caption" Text="{l:T AlertDecodedText}" />
+                    <TextBox Text="{Binding DecodedText}" PlaceholderText="DNS Query" ToolTip.Tip="{l:T AlertDecodedHint}" />
+                  </StackPanel>
+
+                  <TextBlock Classes="section" Text="{l:T AlertFrequency}" Margin="0,4,0,-6" />
+                  <WrapPanel ItemSpacing="12" LineSpacing="8">
+                    <StackPanel>
+                      <TextBlock Classes="caption" Text="{l:T AlertThreshold}" />
+                      <NumericUpDown Value="{Binding Threshold}" Minimum="1" Maximum="1000000" FormatString="0" Width="150" />
+                    </StackPanel>
+                    <StackPanel>
+                      <TextBlock Classes="caption" Text="{l:T AlertWindow}" />
+                      <NumericUpDown Value="{Binding WindowSeconds}" Minimum="0.1" Maximum="86400" Increment="1" FormatString="0.#" Width="150" />
+                    </StackPanel>
+                    <StackPanel>
+                      <TextBlock Classes="caption" Text="{l:T AlertCooldown}" />
+                      <NumericUpDown Value="{Binding CooldownSeconds}" Minimum="0" Maximum="86400" Increment="5" FormatString="0.#" Width="150" />
+                    </StackPanel>
+                  </WrapPanel>
+                  <TextBlock Text="{l:T AlertFrequencyHint}" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+
+                  <TextBlock Classes="section" Text="{l:T AlertActions}" Margin="0,4,0,-6" />
+                  <StackPanel Orientation="Horizontal" Spacing="20">
+                    <CheckBox IsChecked="{Binding Notify}" Content="{l:T AlertNotify}" />
+                    <CheckBox IsChecked="{Binding Sound}" Content="{l:T AlertSound}" />
+                  </StackPanel>
+                  <StackPanel Spacing="4">
+                    <TextBlock Classes="caption" Text="{l:T AlertWebhook}" />
+                    <TextBox Text="{Binding WebhookUrl}" PlaceholderText="https://example.com/hooks/udptcplistener" />
+                    <TextBlock Text="{l:T AlertWebhookHint}" Classes="muted" FontSize="11.5" TextWrapping="Wrap" />
+                  </StackPanel>
+                  <Grid ColumnDefinitions="*,12,180">
+                    <StackPanel Spacing="4">
+                      <TextBlock Classes="caption" Text="{l:T AlertTelegramToken}" />
+                      <TextBox Text="{Binding TelegramBotToken}" PasswordChar="•" RevealPassword="False" PlaceholderText="123456789:AA…" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Spacing="4">
+                      <TextBlock Classes="caption" Text="{l:T AlertTelegramChat}" />
+                      <TextBox Text="{Binding TelegramChatId}" PlaceholderText="-1001234567890" />
+                    </StackPanel>
+                  </Grid>
+                  <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock Text="{l:T AlertTelegramHint}" Classes="muted" FontSize="11.5" TextWrapping="Wrap" MaxWidth="520" VerticalAlignment="Center" />
+                    <Button Classes="link" FontSize="11.5" Padding="4,0" Content="{l:T AlertTelegramHelp}" VerticalAlignment="Center"
+                            Command="{Binding $parent[Window].((vm:AlertsViewModel)DataContext).OpenTelegramHelpCommand}" />
+                  </StackPanel>
+                </StackPanel>
+              </ScrollViewer>
+            </Panel>
+          </Border>
+        </Grid>
+      </TabItem>
+
+      <!-- ============================== Log ============================== -->
+      <TabItem>
+        <TabItem.Header>
+          <TextBlock>
+            <Run Text="{l:T AlertLogTab}" />
+            <Run Text="{Binding Log.Count, StringFormat='({0})'}" />
+          </TextBlock>
+        </TabItem.Header>
+        <DockPanel Margin="0,12,0,0">
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+            <TextBlock Text="{l:T AlertLogHint}" Classes="muted" FontSize="12" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="tool" Content="{l:T Clear}" Command="{Binding ClearLogCommand}" />
+          </Grid>
+          <Border Classes="card" Padding="0" ClipToBounds="True">
+            <DataGrid x:Name="LogGrid" ItemsSource="{Binding Log}" IsReadOnly="True" CanUserResizeColumns="True" SelectionMode="Single">
+              <DataGrid.Columns>
+                <DataGridTextColumn x:DataType="vm:AlertLogEntry" Header="{l:T ColTime}" Binding="{Binding TimeText}" Width="90" CellStyleClasses="mono" />
+                <DataGridTextColumn x:DataType="vm:AlertLogEntry" Header="{l:T AlertName}" Binding="{Binding Rule}" Width="180" />
+                <DataGridTextColumn x:DataType="vm:AlertLogEntry" Header="{l:T ColNo}" Binding="{Binding PacketNumber}" Width="80" CellStyleClasses="mono" />
+                <DataGridTemplateColumn x:DataType="vm:AlertLogEntry" Header="{l:T ColInfo}" Width="*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:AlertLogEntry">
+                      <TextBlock Text="{Binding Message}" Margin="12,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Message}"
+                                 Classes.error="{Binding IsError}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+              </DataGrid.Columns>
+            </DataGrid>
+          </Border>
+        </DockPanel>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>

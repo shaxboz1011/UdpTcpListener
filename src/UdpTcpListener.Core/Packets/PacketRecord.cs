@@ -43,6 +43,13 @@ public sealed record PacketRecord
     /// <summary>Original length on the wire (may exceed <see cref="RawData"/> when the snapshot was truncated).</summary>
     public int Length { get; init; }
 
+    /// <summary>Local process that owned the socket when the packet was captured, if known.</summary>
+    public int? ProcessId { get; init; }
+
+    public string? ProcessName { get; init; }
+
+    public string? Process => ProcessName is null ? null : $"{ProcessName} ({ProcessId})";
+
     public string ProtocolName => Protocol == TransportProtocol.Udp ? "UDP" : "TCP";
     public string Source => FormatEndpoint(SourceAddress, SourcePort);
     public string Destination => FormatEndpoint(DestinationAddress, DestinationPort);

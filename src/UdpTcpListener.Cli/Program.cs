@@ -15,6 +15,7 @@ internal static class Program
           udptcplistener [options]                 capture live (or read a file with -r)
           udptcplistener send <host:port> [...]    send a payload (see: send --help)
           udptcplistener replay <file> [...]       replay a capture (see: replay --help)
+          udptcplistener geoip update | <ip>...    download / query the GeoIP database
 
         Capture options:
           -l, --list               List capture devices and exit
@@ -32,6 +33,10 @@ internal static class Program
           -d, --decode             Also print decoded protocols (DNS, MQTT, Modbus, JSON, custom)
               --protocols <dir>    Folder with custom protocol definitions (*.json)
           -q, --quiet              Do not print packets to the console
+              --alerts <file>      Alert rules (JSON, same format as the desktop app's alerts.json):
+                                   print matches and send their webhook / Telegram messages
+          -P, --process            Show which local process owns each packet's socket
+          -g, --geo                Show country and ASN for public addresses (see: geoip update)
           -v, --version            Show version
           -h, --help               Show this help
 
@@ -52,6 +57,8 @@ internal static class Program
                 return Commands.Send(args[1..]);
             case "replay":
                 return Commands.Replay(args[1..]);
+            case "geoip":
+                return Monitoring.GeoCommand(args[1..]);
         }
 
         Options options;
@@ -147,6 +154,7 @@ internal static class Program
             filter = PromptFilter(filter);
 
         var bpf = filter.ToBpf(); // validate before opening the output file
+        var monitoring = CreateMonitoring(options);
         using var writer = CreateWriter(options, out var outputDescription);
         if (writer is TextPacketWriter text)
             text.AutoFlush = true;
@@ -166,7 +174,8 @@ internal static class Program
                 writer.Write(packet);
                 written++;
                 if (!options.Quiet)
-                    Print(packet, options);
+                    Print(packet, options, monitoring);
+                monitoring?.Evaluate(packet);
 
                 if (options.Count is { } max && written >= max)
                     done.Set();
@@ -194,8 +203,10 @@ internal static class Program
                 ? $"{written} packet(s) written to {rotating.FilesCreated} file(s) {outputDescription}"
                 : $"{written} packet(s) saved to {outputDescription}";
             Console.Error.WriteLine($"\nStopped. {saved}" +
-                                    (stats is { Dropped: > 0 } ? $" ({stats.Dropped} dropped by the kernel)" : ""));
+                                    (stats is { Dropped: > 0 } ? $" ({stats.Dropped} dropped by the kernel)" : "") +
+                                    (monitoring?.AlertCount > 0 ? $", {monitoring.AlertCount} alert(s)" : ""));
         }
+        monitoring?.Flush(TimeSpan.FromSeconds(10));
 
         return 0;
     }
@@ -207,6 +218,7 @@ internal static class Program
 
         var matches = options.Filter.ToPredicate();
         var path = Path.GetFullPath(options.ReadFile!);
+        var monitoring = CreateMonitoring(options);
         using var writer = options.Output is null ? null : CreateWriter(options, out _);
         long count = 0;
 
@@ -217,7 +229,8 @@ internal static class Program
 
             writer?.Write(packet);
             if (!options.Quiet && writer is null)
-                Print(packet, options);
+                Print(packet, options, monitoring);
+            monitoring?.Evaluate(packet);
 
             if (++count == options.Count)
                 break;
@@ -226,6 +239,9 @@ internal static class Program
         Console.Error.WriteLine(writer is null
             ? $"{count} packet(s) in {path}"
             : $"{count} packet(s) from {path} written to {Path.GetFullPath(options.Output!)}");
+        if (monitoring?.AlertCount > 0)
+            Console.Error.WriteLine($"{monitoring.AlertCount} alert(s)");
+        monitoring?.Flush(TimeSpan.FromSeconds(10));
         return 0;
     }
 
@@ -255,9 +271,16 @@ internal static class Program
 
     private static DecoderRegistry? _decoders;
 
-    private static void Print(PacketRecord packet, Options options)
+    private static Monitoring? CreateMonitoring(Options options)
     {
-        Console.WriteLine(TextPacketWriter.Format(packet));
+        if (options.AlertsFile is not null || options.Decode)
+            _decoders ??= Commands.LoadDecoders(options.ProtocolsDirectory);
+        return Monitoring.Create(options.AlertsFile, options.ShowProcess, options.ShowGeo, null, _decoders);
+    }
+
+    private static void Print(PacketRecord packet, Options options, Monitoring? monitoring)
+    {
+        Console.WriteLine(TextPacketWriter.Format(packet) + monitoring?.Annotate(packet));
         if (!options.Decode)
             return;
 
@@ -344,6 +367,9 @@ internal static class Program
         public bool Quiet { get; private init; }
         public bool Decode { get; private init; }
         public string? ProtocolsDirectory { get; private init; }
+        public string? AlertsFile { get; private init; }
+        public bool ShowProcess { get; private init; }
+        public bool ShowGeo { get; private init; }
         public string? Interface { get; private init; }
         public string? Output { get; private init; }
         public long? Count { get; private init; }
@@ -371,6 +397,9 @@ internal static class Program
                     "-q" or "--quiet" => o with { Quiet = true },
                     "-d" or "--decode" => o with { Decode = true },
                     "--protocols" => o with { ProtocolsDirectory = Next() },
+                    "--alerts" => o with { AlertsFile = Next() },
+                    "-P" or "--process" => o with { ShowProcess = true },
+                    "-g" or "--geo" => o with { ShowGeo = true },
                     "-i" or "--interface" => o with { Interface = Next() },
                     "-o" or "--output" => o with { Output = Next() },
                     "-r" or "--read" => o with { ReadFile = Next() },

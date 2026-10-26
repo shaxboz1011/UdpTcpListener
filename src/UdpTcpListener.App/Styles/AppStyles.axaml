@@ -32,6 +32,19 @@
     <Setter Property="Foreground" Value="{DynamicResource MutedText}" />
   </Style>
 
+  <!-- Country code next to an address in the packet list. -->
+  <Style Selector="TextBlock.country">
+    <Setter Property="FontSize" Value="10.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentAltBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="6,0,0,0" />
+  </Style>
+
+  <Style Selector="TextBlock.error">
+    <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+  </Style>
+
   <!-- Primary start/stop button. -->
   <Style Selector="Button.primary">
     <Setter Property="Background" Value="{DynamicResource BrandGradient}" />

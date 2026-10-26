@@ -35,6 +35,9 @@
 - **Protocol decoders.** DNS, MQTT, Modbus/TCP, JSON and HTTP are decoded automatically, and the result appears in the Info column and the details pane.
 - **Your own protocols.** Describe a binary protocol in a small JSON file (field types, scaling, units, enums, bit flags, magic numbers) and it is decoded like a built-in one. See [docs/CUSTOM_PROTOCOLS.md](docs/CUSTOM_PROTOCOLS.md).
 - **Send and replay.** Craft a UDP/TCP payload (text with escapes, hex or Base64) and send it once or many times, optionally waiting for replies. "Send again" re-sends a captured packet, and Replay re-sends a set of packets with their original timing (sped up if you like) or injects the original frames onto a network card.
+- **Alerts.** Rules such as "payload contains X", "traffic from network Y" or "more than N packets in T seconds" trigger an in-app/desktop notification, a sound, a webhook or a Telegram message. The CLI uses the same rules with `--alerts`. See [docs/MONITORING.md](docs/MONITORING.md).
+- **Process names.** See which application on your computer sent or received each packet (Windows and Linux).
+- **GeoIP / ASN.** Country codes next to public addresses, plus the owning network in the details, from the free offline DB-IP Lite database (one-click download).
 - **Save to disk while capturing**, for long captures. Files rotate by size and only the newest N are kept, so disk use stays bounded.
 - **Works on any link layer:** Ethernet, Wi-Fi, loopback, VPN/tun and Linux `any`.
 - **One-click setup.** If the capture driver is missing, the built-in setup assistant installs it for you. On Windows it downloads the official Npcap installer and checks its signature; on Linux it installs libpcap with your package manager. It can also restart the app as administrator.
@@ -49,6 +52,8 @@
 ![Custom protocol decoded in the details pane](docs/screenshots/decoders.png)
 
 ![Replay window](docs/screenshots/replay.png)
+
+![Alerts, process names and countries](docs/screenshots/monitoring.png)
 
 ## Install
 
@@ -100,10 +105,14 @@ udptcplistener [options]
       --rotate-minutes <n> ... or after this many minutes
       --rotate-files <n>   Keep only the newest n files (ring buffer)
   -d, --decode             Also print decoded protocols (DNS, MQTT, Modbus, JSON, custom)
+      --alerts <file>      Alert rules (JSON): print matches, send webhooks / Telegram messages
+  -P, --process            Show which local process owns each packet
+  -g, --geo                Show country and ASN of public addresses
 
 udptcplistener send <host:port> [-p udp|tcp] [-t text | -x hex | -b base64 | -F file]
                     [-c count] [-i interval-ms] [-w wait-for-reply-ms]
 udptcplistener replay <file> [--to host:port | --inject device] [--speed x | --interval ms | --fast] [--loops n]
+udptcplistener geoip update | <ip>...
 ```
 
 Examples:
@@ -120,6 +129,9 @@ udptcplistener send 192.168.1.50:502 -p tcp -x "00 01 00 00 00 06 01 03 00 00 00
 
 # Replay captured DNS queries against a test server, 10x faster
 udptcplistener replay dns.pcapng --port 53 --to 127.0.0.1:5353 --speed 10
+
+# Watch for alerts (same alerts.json as the desktop app) and show process names
+udptcplistener -i eth0 --alerts alerts.json -P
 ```
 
 If you run it without `--interface`, it asks for the device and filters interactively, like the original tool.
@@ -160,7 +172,7 @@ Tags such as `v1.1.0-beta.1` become pre-releases and are not offered to stable u
 
 ## Roadmap
 
-See [docs/ROADMAP.md](docs/ROADMAP.md). Highlights: conversations and "follow stream", a UDP/TCP sender and replay tool, protocol decoders (Modbus, MQTT, custom), alerts and webhooks, and a remote capture agent.
+See [docs/ROADMAP.md](docs/ROADMAP.md). Next up: a headless capture agent with a secure stream to the desktop app, a plugin API, a macOS build and a signed Windows installer.
 
 ## Contributing
 
@@ -169,6 +181,8 @@ Contributions are welcome, including translations. See [CONTRIBUTING.md](CONTRIB
 ## Legal
 
 Only capture traffic on networks you own or are authorised to monitor.
+
+IP geolocation by [DB-IP](https://db-ip.com), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The database is downloaded at your request and is not part of this repository.
 
 ## License
 

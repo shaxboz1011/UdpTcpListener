@@ -32,6 +32,9 @@ public sealed class AppSettings
     public string? RecordFolder { get; set; }
     public int RecordFileSizeMb { get; set; } = 100;
     public int RecordMaxFiles { get; set; } = 10;
+
+    /// <summary>Master switch for alert rules (the rules themselves live in alerts.json).</summary>
+    public bool AlertsEnabled { get; set; } = true;
 }
 
 /// <summary>Persists <see cref="AppSettings"/> as JSON in the per-user application data folder.</summary>
